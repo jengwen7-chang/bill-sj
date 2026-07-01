@@ -756,6 +756,11 @@ class CommunityApp {
     this.btnOfflineMode = document.getElementById('btn-offline-mode');
     this.syncStatusBadge = document.getElementById('sync-status-badge');
     this.btnLogout = document.getElementById('btn-logout');
+    
+    // 雲端同步手動控制按鈕
+    this.btnForceUploadCloud = document.getElementById('btn-force-upload-cloud');
+    this.btnForceDownloadCloud = document.getElementById('btn-force-download-cloud');
+    this.cloudSyncControls = document.getElementById('cloud-sync-controls');
   }
 
   // ==========================================================================
@@ -788,6 +793,59 @@ class CommunityApp {
       if (e.target.closest('#btn-logout')) return;
       this.loginOverlay.classList.remove('hidden');
     });
+
+    // 強制覆蓋雲端資料庫
+    if (this.btnForceUploadCloud) {
+      this.btnForceUploadCloud.addEventListener('click', async () => {
+        if (this.syncMode !== 'online') {
+          alert('請先點選左下角登入雲端，才能執行覆蓋！');
+          return;
+        }
+        if (confirm('確定要將目前的本機資料庫強制覆蓋雲端嗎？\n這會將雲端的資料更新為您目前畫面上所顯示的最新狀態！')) {
+          this.setSyncStatus('loading', '強制同步上傳中...');
+          await this.saveToCloud();
+          alert('🎉 強制覆蓋雲端成功！目前本地與雲端資料已完全同步！');
+        }
+      });
+    }
+
+    // 強制從雲端下載資料覆蓋本機
+    if (this.btnForceDownloadCloud) {
+      this.btnForceDownloadCloud.addEventListener('click', async () => {
+        if (this.syncMode !== 'online') {
+          alert('請先點選左下角登入雲端，才能執行覆蓋！');
+          return;
+        }
+        if (confirm('確定要從雲端「強制拉取」資料並覆蓋您的本機資料嗎？\n注意：這會清空並取代您目前電腦上的本地資料！')) {
+          this.setSyncStatus('loading', '強制同步下載中...');
+          try {
+            const { data, error } = await this.supabase
+              .from('community_db')
+              .select('*')
+              .eq('id', 'default_db')
+              .single();
+
+            if (error) throw error;
+            if (data) {
+              this.db.vendors = data.vendors || [];
+              this.db.vouchers = data.vouchers || [];
+              this.db.pettyCash = data.petty_cash || [];
+              this.db.importHistory = data.import_history || [];
+              this.db.proprietors = data.proprietors || [];
+              
+              this.saveToStorage();
+              this.setSyncStatus('online', '雲端已同步');
+              this.renderAll();
+              alert('🎉 強制覆蓋本機成功！目前本機已完全同步為雲端資料！');
+            }
+          } catch (err) {
+            console.error(err);
+            alert(`拉取失敗：${err.message}`);
+            this.setSyncStatus('online', '雲端已同步');
+          }
+        }
+      });
+    }
 
     // 頁籤切換
     this.tabItems.forEach(item => {
@@ -4362,8 +4420,10 @@ class CommunityApp {
 
     if (mode === 'online') {
       this.btnLogout.style.display = 'inline-flex';
+      if (this.cloudSyncControls) this.cloudSyncControls.style.display = 'flex';
     } else {
       this.btnLogout.style.display = 'none';
+      if (this.cloudSyncControls) this.cloudSyncControls.style.display = 'none';
     }
     
     // 如果有 Lucide，重繪圖標以防載出未生成

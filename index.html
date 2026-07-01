@@ -173,6 +173,22 @@
             <button class="btn btn-secondary btn-sm" id="btn-load-demo-db" title="載入系統內建的示範帳務資料" style="grid-column: span 2; font-weight: 600; background: var(--primary-light); color: var(--primary); border: none; padding: 8px;">
               <i data-lucide="play" style="width: 14px; height: 14px; margin-right: 4px;"></i>載入 115年6月 範例資料
             </button>
+            
+            <!-- 雲端強制同步工具 (Supabase Mode 專用) -->
+            <div id="cloud-sync-controls" style="grid-column: span 2; display: flex; flex-direction: column; gap: 8px; margin: 4px 0; border: 1px dashed var(--border-color); padding: 8px; border-radius: 8px; background: rgba(16, 185, 129, 0.05);">
+              <div style="font-size: 0.8rem; font-weight: 700; color: var(--success); margin-bottom: 2px; display: flex; align-items: center; gap: 4px;">
+                <i data-lucide="cloud" style="width: 14px; height: 14px;"></i>雲端資料庫手動同步
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-force-upload-cloud" style="font-weight: 600; padding: 6px; font-size: 0.8rem; background: #10b981; border-color: #10b981; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                  <i data-lucide="upload-cloud" style="width: 14px; height: 14px;"></i>強制覆蓋雲端
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-force-download-cloud" style="font-weight: 600; padding: 6px; font-size: 0.8rem; border-color: #10b981; color: #10b981; display: flex; align-items: center; justify-content: center; gap: 4px; background: transparent;">
+                  <i data-lucide="download-cloud" style="width: 14px; height: 14px;"></i>強制覆蓋本機
+                </button>
+              </div>
+            </div>
+
             <button class="btn btn-danger btn-sm" id="btn-db-clear" title="清空本機資料庫所有數據" style="grid-column: span 2; font-weight: 600; padding: 6px; margin-top: 2px;">
               <i data-lucide="trash-2" style="width: 14px; height: 14px; margin-right: 4px;"></i>清空初始化資料庫
             </button>
