@@ -13,9 +13,17 @@
      側邊導覽列 (Sidebar)
      ========================================================================== -->
   <aside class="sidebar">
-    <div class="sidebar-brand">
+    <div class="sidebar-brand" style="padding-bottom: 8px;">
       <i data-lucide="building-2"></i>
       <h1>社區帳務系統</h1>
+    </div>
+    <!-- 雲端同步狀態指示器 -->
+    <div class="sync-status-badge" id="sync-status-badge">
+      <span class="sync-dot"></span>
+      <span class="sync-text">載入中...</span>
+      <button class="btn-logout" id="btn-logout" title="安全登出並切換模式" style="display: none;">
+        <i data-lucide="log-out" style="width: 12px; height: 12px;"></i>
+      </button>
     </div>
     
     <nav style="flex-grow: 1;">
@@ -1373,8 +1381,42 @@
   <script src="historical-data.js"></script>
   <!-- 12. 引入月財報列印資料整理器 -->
   <script src="monthly-financial-print-report.js"></script>
-  <!-- 13. 引入社區帳務系統主 JS -->
+  <!-- 13. 引入 Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 14. 引入社區帳務系統主 JS -->
   <script src="app.js"></script>
+
+  <!-- ==========================================================================
+     Supabase 雲端登入彈窗 (Login Overlay)
+     ========================================================================== -->
+  <div id="login-overlay" class="login-overlay hidden">
+    <div class="login-card">
+      <div class="login-header">
+        <i data-lucide="shield-check" style="width: 48px; height: 48px; color: var(--primary); margin-bottom: 12px; display: inline-block;"></i>
+        <h2>社區帳務雲端同步</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">請登入以同步社區財務資料庫</p>
+      </div>
+      <form id="login-form">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="login-username" class="required">登入帳號</label>
+          <input type="text" id="login-username" class="form-input" placeholder="預設為 admin" required autocomplete="username">
+        </div>
+        <div class="form-group" style="margin-bottom: 24px;">
+          <label for="login-password" class="required">安全密碼</label>
+          <input type="password" id="login-password" class="form-input" placeholder="預設為 admin123" required autocomplete="current-password">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <i data-lucide="log-in" style="width: 18px; height: 18px;"></i>雲端登入同步
+          </button>
+          <button type="button" id="btn-offline-mode" class="btn btn-secondary" style="width: 100%; padding: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--border-color); background: transparent;">
+            <i data-lucide="wifi-off" style="width: 18px; height: 18px;"></i>使用單機離線模式
+          </button>
+        </div>
+        <div id="login-error-msg" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 12px; font-weight: 600; display: none;"></div>
+      </form>
+    </div>
+  </div>
 
 </body>
 </html>

@@ -98,6 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 class CommunityApp {
   constructor() {
+    this.supabase = null;
+    this.syncMode = 'loading'; // online | offline | loading
+
     this.initDatabase();
     
     // 若本機資料庫完全無資料，則初次載入預設真實住戶與 115 年 6 月範例對帳資料
@@ -108,6 +111,11 @@ class CommunityApp {
 
     this.initElements();
     this.initEvents();
+    
+    // 初始化 Supabase 與檢查登入狀態
+    this.initSupabase();
+    this.checkLoginStatus();
+
     this.switchTab('dashboard');
     this.updateClock();
     setInterval(() => this.updateClock(), 60000);
@@ -206,6 +214,11 @@ class CommunityApp {
     }
     if (key === 'bankBalances' || !key) {
       localStorage.setItem('comm_bank_balances', JSON.stringify(this.db.bankBalances));
+    }
+
+    // 當處於雲端同步模式時，自動將更新推送至 Supabase
+    if (this.syncMode === 'online') {
+      this.saveToCloud();
     }
   }
 
@@ -733,12 +746,43 @@ class CommunityApp {
     this.payAmountInput = document.getElementById('pay-amount');
     this.payMethodSelect = document.getElementById('pay-method');
     this.payRemarkInput = document.getElementById('pay-remark');
+
+    // Supabase 登入與狀態元素
+    this.loginOverlay = document.getElementById('login-overlay');
+    this.loginForm = document.getElementById('login-form');
+    this.loginUsernameInput = document.getElementById('login-username');
+    this.loginPasswordInput = document.getElementById('login-password');
+    this.loginErrorMsg = document.getElementById('login-error-msg');
+    this.btnOfflineMode = document.getElementById('btn-offline-mode');
+    this.syncStatusBadge = document.getElementById('sync-status-badge');
+    this.btnLogout = document.getElementById('btn-logout');
   }
 
   // ==========================================================================
   // 3. 事件綁定 (Event Listeners)
   // ==========================================================================
   initEvents() {
+    // 雲端登入與同步事件
+    this.loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = this.loginUsernameInput.value.trim();
+      const password = this.loginPasswordInput.value.trim();
+      this.handleCloudLogin(username, password);
+    });
+
+    this.btnOfflineMode.addEventListener('click', () => {
+      localStorage.setItem('comm_offline_mode', 'true');
+      localStorage.removeItem('comm_supabase_logged_in');
+      this.loginOverlay.classList.add('hidden');
+      this.setSyncStatus('offline', '單機離線模式');
+      this.renderAll();
+      alert('已切換至單機離線模式！');
+    });
+
+    this.btnLogout.addEventListener('click', () => {
+      this.handleLogout();
+    });
+
     // 頁籤切換
     this.tabItems.forEach(item => {
       item.addEventListener('click', () => {
@@ -4253,6 +4297,188 @@ class CommunityApp {
     };
     if (e.target.files.length > 0) {
       fileReader.readAsArrayBuffer(e.target.files[0]);
+    }
+  }
+
+  // ==========================================================================
+  // 15. Supabase 雲端同步與登入控制邏輯
+  // ==========================================================================
+  
+  // 初始化 Supabase 客戶端
+  initSupabase() {
+    const supabaseUrl = 'https://pzwanclaupjxdralmopt.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6d2FuY2xhdXBqeGRyYWxtb3B0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4ODc2MzMsImV4cCI6MjA5ODQ2MzYzM30.DSW0XC-ACH-QzgaW9kAva1ujfBQtuw6SaWgE3velRd0';
+    
+    try {
+      if (window.supabase) {
+        this.supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+      }
+    } catch (err) {
+      console.error('Supabase SDK 初始化失敗:', err);
+    }
+  }
+
+  // 檢查登入狀態與模式
+  checkLoginStatus() {
+    const loggedIn = localStorage.getItem('comm_supabase_logged_in');
+    const isOffline = localStorage.getItem('comm_offline_mode');
+
+    if (isOffline === 'true') {
+      this.setSyncStatus('offline', '單機離線模式');
+      this.loginOverlay.classList.add('hidden');
+      return;
+    }
+
+    if (loggedIn === 'true') {
+      this.setSyncStatus('online', '雲端連線中...');
+      this.loginOverlay.classList.add('hidden');
+      this.loadDataFromCloud();
+    } else {
+      this.setSyncStatus('offline', '未登入雲端');
+      this.loginOverlay.classList.remove('hidden');
+    }
+  }
+
+  // 設定狀態燈號 UI
+  setSyncStatus(mode, text) {
+    this.syncMode = mode;
+    if (!this.syncStatusBadge) return;
+
+    this.syncStatusBadge.className = 'sync-status-badge ' + mode;
+    const textEl = this.syncStatusBadge.querySelector('.sync-text');
+    if (textEl) textEl.textContent = text;
+
+    if (mode === 'online') {
+      this.btnLogout.style.display = 'inline-flex';
+    } else {
+      this.btnLogout.style.display = 'none';
+    }
+    
+    // 如果有 Lucide，重繪圖標以防載出未生成
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  }
+
+  // 登入驗證
+  async handleCloudLogin(username, password) {
+    this.loginErrorMsg.style.display = 'none';
+    
+    if (!this.supabase) {
+      alert('Supabase 客戶端未載入，請確認網路連線或使用離線模式！');
+      return;
+    }
+
+    try {
+      this.setSyncStatus('loading', '連線驗證中...');
+      
+      const { data, error } = await this.supabase
+        .from('community_users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error || !data) {
+        throw new Error('帳號不存在！');
+      }
+
+      if (data.password !== password) {
+        throw new Error('密碼錯誤！');
+      }
+
+      // 登入成功！
+      localStorage.setItem('comm_supabase_logged_in', 'true');
+      localStorage.removeItem('comm_offline_mode');
+      this.loginOverlay.classList.add('hidden');
+      
+      this.setSyncStatus('online', '載入雲端資料...');
+      await this.loadDataFromCloud();
+      
+      alert('雲端資料庫同步成功！');
+    } catch (err) {
+      console.error('登入失敗:', err);
+      this.setSyncStatus('offline', '未登入雲端');
+      this.loginErrorMsg.textContent = `登入失敗：${err.message}`;
+      this.loginErrorMsg.style.display = 'block';
+    }
+  }
+
+  // 載入雲端資料
+  async loadDataFromCloud() {
+    if (!this.supabase) return;
+
+    try {
+      const { data, error } = await this.supabase
+        .from('community_db')
+        .select('*')
+        .eq('id', 'default_db')
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const hasCloudData = (data.vouchers && data.vouchers.length > 0) || (data.proprietors && data.proprietors.length > 0);
+        
+        if (hasCloudData) {
+          console.log('自雲端載入資料庫成功，正更新本地快取...');
+          this.db.vendors = data.vendors || [];
+          this.db.vouchers = data.vouchers || [];
+          this.db.pettyCash = data.petty_cash || [];
+          this.db.importHistory = data.import_history || [];
+          this.db.proprietors = data.proprietors || [];
+          
+          localStorage.setItem('comm_vendors', JSON.stringify(this.db.vendors));
+          localStorage.setItem('comm_vouchers', JSON.stringify(this.db.vouchers));
+          localStorage.setItem('comm_petty_cash', JSON.stringify(this.db.pettyCash));
+          localStorage.setItem('comm_import_history', JSON.stringify(this.db.importHistory));
+          localStorage.setItem('comm_proprietors', JSON.stringify(this.db.proprietors));
+        } else {
+          console.log('雲端資料為空，正在將本地歷史資料同步至雲端...');
+          await this.saveToCloud();
+        }
+
+        this.setSyncStatus('online', '雲端已同步');
+        this.renderAll();
+      }
+    } catch (err) {
+      console.error('自雲端載入資料失敗:', err);
+      this.setSyncStatus('offline', '單機暫存模式');
+    }
+  }
+
+  // 將本地資料推送同步到雲端
+  async saveToCloud() {
+    if (this.syncMode !== 'online' || !this.supabase) return;
+
+    try {
+      const { error } = await this.supabase
+        .from('community_db')
+        .upsert({
+          id: 'default_db',
+          vendors: this.db.vendors,
+          vouchers: this.db.vouchers,
+          petty_cash: this.db.pettyCash,
+          import_history: this.db.importHistory,
+          proprietors: this.db.proprietors,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      console.log('雲端資料同步完成！');
+      this.setSyncStatus('online', '雲端已同步');
+    } catch (err) {
+      console.error('資料同步到雲端失敗:', err);
+      this.setSyncStatus('offline', '同步失敗');
+    }
+  }
+
+  // 安全登出並清除狀態
+  handleLogout() {
+    if (confirm('確定要登出並切換模式嗎？')) {
+      localStorage.removeItem('comm_supabase_logged_in');
+      localStorage.removeItem('comm_offline_mode');
+      this.loginOverlay.classList.remove('hidden');
+      this.setSyncStatus('offline', '未登入雲端');
     }
   }
 }
