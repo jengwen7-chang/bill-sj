@@ -1,0 +1,12 @@
+# 忽略真實的社區帳務與明細資料，防止隱私外洩
+*.xlsx
+*.xls
+*.json
+!package.json
+!package-lock.json
+
+# 忽略系統與開發環境檔案
+.DS_Store
+.vscode/
+.gemini/
+node_modules/

@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社區帳務與收支管理系統 - 鴻邦世界花園二期</title>
+  <!-- 引入 Vanilla CSS 樣式表 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==========================================================================
+     側邊導覽列 (Sidebar)
+     ========================================================================== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <i data-lucide="building-2"></i>
+      <h1>社區帳務系統</h1>
+    </div>
+    
+    <nav style="flex-grow: 1;">
+      <ul class="sidebar-menu">
+        <li class="sidebar-item active" data-tab="dashboard">
+          <a><i data-lucide="layout-dashboard"></i>控制面板</a>
+        </li>
+        <li class="sidebar-item" data-tab="vouchers">
+          <a><i data-lucide="receipt"></i>支出傳票</a>
+        </li>
+        <li class="sidebar-item" data-tab="import">
+          <a><i data-lucide="file-spreadsheet"></i>今網收繳匯入</a>
+        </li>
+        <li class="sidebar-item" data-tab="petty-cash">
+          <a><i data-lucide="wallet"></i>代墊請款</a>
+        </li>
+        <li class="sidebar-item" data-tab="monthly-report">
+          <a><i data-lucide="calendar"></i>每月財報</a>
+        </li>
+        <li class="sidebar-item" data-tab="annual-report">
+          <a><i data-lucide="trending-up"></i>每年財報</a>
+        </li>
+        <li class="sidebar-item" data-tab="vendors">
+          <a><i data-lucide="users"></i>廠商資料管理</a>
+        </li>
+        <li class="sidebar-item" data-tab="proprietors">
+          <a><i data-lucide="home"></i>區權人及管理費</a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-secondary btn-sm" id="btn-theme-toggle" title="切換深淺色主題">
+        <i data-lucide="sun"></i><span>切換主題</span>
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btn-export-data">
+        <i data-lucide="download"></i>匯出資料備份
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btn-import-trigger">
+        <i data-lucide="upload"></i>匯入資料還原
+      </button>
+      <input type="file" id="restore-file-input" class="hidden" accept=".json">
+    </div>
+  </aside>
+
+  <!-- ==========================================================================
+     主內容區 (Main Content)
+     ========================================================================== -->
+  <main class="main-content">
+    
+    <!-- 頂部頁面標題列 -->
+    <header class="main-header">
+      <div class="page-title">
+        <h2 id="current-tab-title">控制面板</h2>
+        <p id="current-tab-desc">鴻邦世界花園二期社區管理委員會 帳務狀況總覽</p>
+      </div>
+      <div class="header-actions">
+        <span id="current-time-badge" class="badge badge-primary">載入中...</span>
+      </div>
+    </header>
+
+    <!-- ==========================================================================
+       TAB 1: 控制面板 (Dashboard)
+       ========================================================================== -->
+    <section id="tab-dashboard" class="tab-content">
+      <!-- 統計數據卡片 -->
+      <div class="grid-3">
+        <div class="card stat-card">
+          <div class="stat-icon success">
+            <i data-lucide="trending-up"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">本月累計收入</span>
+            <span class="stat-value" id="dash-total-income">$0</span>
+            <span class="stat-trend trend-up"><i data-lucide="arrow-up-right"></i> 今網管理費已計入</span>
+          </div>
+        </div>
+        
+        <div class="card stat-card">
+          <div class="stat-icon danger">
+            <i data-lucide="trending-down"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">本月累計支出</span>
+            <span class="stat-value" id="dash-total-expense">$0</span>
+            <span class="stat-trend trend-down" id="dash-expense-trend"><i data-lucide="receipt"></i> 傳票與代墊請款</span>
+          </div>
+        </div>
+
+        <div class="card stat-card">
+          <div class="stat-icon primary">
+            <i data-lucide="scale"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">本月收支餘額</span>
+            <span class="stat-value" id="dash-balance">$0</span>
+            <span class="stat-trend" id="dash-balance-trend">本月收支結餘</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="grid-3">
+        <div class="card stat-card">
+          <div class="stat-icon warning">
+            <i data-lucide="wallet"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">待請款代墊金額</span>
+            <span class="stat-value" id="dash-petty-cash">$0</span>
+            <span class="stat-trend" id="dash-petty-status">尚未匯款請款</span>
+          </div>
+        </div>
+
+        <div class="card stat-card">
+          <div class="stat-icon primary">
+            <i data-lucide="truck"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">已登記廠商數</span>
+            <span class="stat-value" id="dash-vendor-count">0</span>
+            <span class="stat-trend">合作廠商與名冊</span>
+          </div>
+        </div>
+
+        <div class="card stat-card" style="background: var(--card-bg); border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: space-between; padding: 16px;">
+          <div style="width: 100%;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <i data-lucide="database" style="color: var(--primary); width: 20px; height: 20px;"></i>
+              <span class="stat-label" style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">本機微型資料庫 (JSON-DB)</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 12px;">
+              儲存媒介：<span class="badge badge-success" style="font-size: 0.75rem; padding: 2px 6px;">LocalStorage (瀏覽器安全沙盒)</span><br>
+          資料統計：<span id="db-stat-vouchers" style="font-weight: 700; color: var(--primary);">0</span> 筆傳票 | <span id="db-stat-petty" style="font-weight: 700; color: var(--primary);">0</span> 筆代墊請款 | <span id="db-stat-prop" style="font-weight: 700; color: var(--primary);">0</span> 戶住戶
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%;">
+            <button class="btn btn-secondary btn-sm" id="btn-db-export" title="匯出完整資料庫檔案 (.json)" style="font-weight: 600; padding: 6px;">
+              <i data-lucide="download" style="width: 14px; height: 14px; margin-right: 4px;"></i>備份匯出
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-db-import-trigger" title="匯入已備份的資料庫檔案 (.json)" style="font-weight: 600; padding: 6px;">
+              <i data-lucide="upload" style="width: 14px; height: 14px; margin-right: 4px;"></i>還原匯入
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-import-excel-history" title="匯入年度住戶管理費繳費紀錄 Excel 檔" style="font-weight: 600; padding: 6px; grid-column: span 2;">
+              <i data-lucide="file-spreadsheet" style="width: 14px; height: 14px; margin-right: 4px;"></i>匯入歷史繳費 Excel
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-load-demo-db" title="載入系統內建的示範帳務資料" style="grid-column: span 2; font-weight: 600; background: var(--primary-light); color: var(--primary); border: none; padding: 8px;">
+              <i data-lucide="play" style="width: 14px; height: 14px; margin-right: 4px;"></i>載入 115年6月 範例資料
+            </button>
+            <button class="btn btn-danger btn-sm" id="btn-db-clear" title="清空本機資料庫所有數據" style="grid-column: span 2; font-weight: 600; padding: 6px; margin-top: 2px;">
+              <i data-lucide="trash-2" style="width: 14px; height: 14px; margin-right: 4px;"></i>清空初始化資料庫
+            </button>
+          </div>
+          <input type="file" id="db-restore-file-input" class="hidden" accept=".json">
+          <input type="file" id="excel-history-file-input" class="hidden" accept=".xlsx,.xls">
+        </div>
+      </div>
+
+      <!-- 圖表與近期交易 -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">
+            <span>本月支出科目佔比</span>
+            <i data-lucide="pie-chart" class="text-secondary"></i>
+          </div>
+          <div class="chart-container">
+            <canvas id="dash-pie-chart"></canvas>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-title">
+            <span>近期支出傳票 (當月)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.switchTab('vouchers')">查看全部</button>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>傳票編號</th>
+                  <th>廠商</th>
+                  <th>科目</th>
+                  <th>金額</th>
+                </tr>
+              </thead>
+              <tbody id="dash-recent-vouchers">
+                <tr>
+                  <td colspan="4" style="text-align: center; color: var(--text-secondary);">暫無資料，請先新增或載入範例資料</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       TAB 2: 支出傳票管理 (Expense Voucher)
+       ========================================================================== -->
+    <section id="tab-vouchers" class="tab-content hidden">
+      <div class="card">
+        <div class="toolbar">
+          <!-- 搜尋與篩選群組 -->
+          <div class="filter-group">
+            <div class="search-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="voucher-search" placeholder="搜尋傳票號、摘要、廠商...">
+            </div>
+            <select id="voucher-filter-category" class="filter-control">
+              <option value="">所有會計科目</option>
+              <!-- 動態載入 -->
+            </select>
+            <select id="voucher-filter-month" class="filter-control">
+              <option value="">所有月份</option>
+              <!-- 動態載入 -->
+            </select>
+            <select id="voucher-filter-type" class="filter-control">
+              <option value="">所有支出性質</option>
+              <option value="fixed">固定支出</option>
+              <option value="non-fixed">非固定支出</option>
+            </select>
+          </div>
+          
+          <!-- 操作按鈕群組 -->
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="btn-print-monthly-summary" title="列印當前篩選月份的傳票總目錄清冊">
+              <i data-lucide="printer"></i>列印月份總表
+            </button>
+            <button class="btn btn-primary" id="btn-add-voucher">
+              <i data-lucide="plus"></i>新增支出傳票
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table id="vouchers-table">
+            <thead>
+              <tr>
+                <th>編號</th>
+                <th>傳票日期</th>
+                <th>傳票號碼</th>
+                <th>廠商名稱</th>
+                <th>會計科目</th>
+                <th>支出金額</th>
+                <th>用途說明 (摘要)</th>
+                <th>支付方式</th>
+                <th>性質</th>
+                <th style="text-align: center; width: 150px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="vouchers-list">
+              <tr>
+                <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                  <i data-lucide="inbox" style="font-size: 2.5rem; margin-bottom: 12px; display: block; width: 100%;"></i>
+                  暫無傳票資料，請點擊「新增支出傳票」或「載入範例資料」
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       TAB 3: 今網管理費收繳匯入 (Income Import)
+       ========================================================================== -->
+    <section id="tab-import" class="tab-content hidden">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">今網智生活 Excel 匯入</div>
+          
+          <div class="import-zone" id="excel-drop-zone">
+            <i data-lucide="file-up"></i>
+            <div>
+              <h3>將今網智生活匯出的 Excel 檔案拖曳至此</h3>
+              <p style="margin-top: 8px;">或者 <strong>點擊此處瀏覽電腦檔案</strong></p>
+              <p style="font-size: 0.8rem; margin-top: 6px;">支援 .xlsx 或 .xls 檔案格式</p>
+            </div>
+            <input type="file" id="excel-file-input" class="hidden" accept=".xlsx, .xls">
+          </div>
+
+          <div class="import-preview-section hidden" id="import-preview-section">
+            <div class="card-title" style="font-size: 1rem; margin-bottom: 12px;">欄位設定與對照</div>
+            <div class="column-mapper-grid">
+              <div class="form-group">
+                <label for="map-date">收款日期欄位</label>
+                <select id="map-date" class="filter-control"></select>
+              </div>
+              <div class="form-group">
+                <label for="map-addr">戶別/棟別欄位</label>
+                <select id="map-addr" class="filter-control"></select>
+              </div>
+              <div class="form-group">
+                <label for="map-amount">入帳/實收金額欄位</label>
+                <select id="map-amount" class="filter-control"></select>
+              </div>
+              <div class="form-group">
+                <label for="map-payer">繳款人欄位</label>
+                <select id="map-payer" class="filter-control"></select>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span id="import-stats-text" style="font-weight: 600;">共偵測到 0 筆資料，合計金額：$0</span>
+              <button class="btn btn-primary" id="btn-submit-import">確認匯入資料庫</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">匯入歷史與說明</div>
+          <div style="font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
+            <h4 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">使用說明：</h4>
+            <ol style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+              <li>登入<strong>今網智生活</strong>管委會後台。</li>
+              <li>匯出當月「管理費收繳明細/財務報表」Excel 檔。</li>
+              <li>將下載的 Excel 拖曳至左側上傳區。</li>
+              <li>系統會自動辨識並列出表格，若欄位對照不正確，可手動選擇欄位進行對照。</li>
+              <li>點選「確認匯入」，資料將批次記錄為系統的<strong>收入帳目</strong>，自動歸類至「管理費收入」科目，並呈現於每月與每年財務報表。</li>
+            </ol>
+            
+            <h4 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">目前已匯入統計：</h4>
+            <ul style="padding-left: 20px; display: flex; flex-direction: column; gap: 6px;" id="import-history-list">
+              <li>暫無匯入歷史記錄。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 匯入預覽表格 -->
+      <div class="card hidden" id="import-table-card" style="margin-top: 24px;">
+        <div class="card-title">Excel 解析資料預覽 (僅顯示前 30 筆)</div>
+        <div class="table-responsive">
+          <table>
+            <thead id="import-preview-thead">
+              <!-- 動態生成 -->
+            </thead>
+            <tbody id="import-preview-tbody">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       TAB 4: 代墊請款明細
+       ========================================================================== -->
+    <section id="tab-petty-cash" class="tab-content hidden">
+      <div class="petty-cash-header">
+        <div class="petty-cash-title">
+          <h3>代墊請款明細表</h3>
+          <p style="font-size: 0.85rem; opacity: 0.9; margin-top: 4px;">記錄日常小額代墊支出，勾選後產生請款匯款傳票</p>
+        </div>
+        <div class="petty-cash-stats">
+          <div class="petty-cash-stat">
+            <span class="petty-cash-stat-label">待請款金額</span>
+            <span class="petty-cash-stat-value" id="petty-current-balance">$0</span>
+          </div>
+          <div class="petty-cash-stat">
+            <span class="petty-cash-stat-label">本月代墊支出</span>
+            <span class="petty-cash-stat-value" id="petty-month-expense">$0</span>
+          </div>
+          <div class="petty-cash-stat">
+            <span class="petty-cash-stat-label">已請款總額</span>
+            <span class="petty-cash-stat-value" id="petty-unreimbursed-amount" style="color: hsl(38, 100%, 80%);">$0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <div class="filter-group">
+            <select id="petty-filter-month" class="filter-control">
+              <option value="">所有月份</option>
+            </select>
+            <select id="petty-filter-status" class="filter-control">
+              <option value="">所有狀態</option>
+              <option value="unreimbursed">待請款</option>
+              <option value="reimbursed">已請款</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <button class="btn btn-secondary" id="btn-download-petty-excel" title="下載符合社區格式的零用金收支明細表 Excel 檔案">
+              <i data-lucide="download"></i>下載零用金明細
+            </button>
+            <button class="btn btn-secondary" id="btn-reimburse-petty" title="將勾選的代墊支出彙整，並自動產生一張支出傳票進行匯款請款">
+              <i data-lucide="check-square"></i>產生請款傳票 (<span id="reimburse-count">0</span>)
+            </button>
+            <button class="btn btn-primary" id="btn-add-petty">
+              <i data-lucide="plus"></i>登記代墊
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table id="petty-table">
+            <thead>
+              <tr>
+                <th style="width: 40px; text-align: center;"><input type="checkbox" id="petty-select-all"></th>
+                <th style="width: 60px;">項次</th>
+                <th style="width: 120px;">日期</th>
+                <th style="width: 120px;">會計科目</th>
+                <th>摘要說明</th>
+                <th style="text-align: right; width: 100px;">請款收入</th>
+                <th style="text-align: right; width: 100px;">代墊金額</th>
+                <th style="text-align: right; width: 100px;">待請款餘額</th>
+                <th style="width: 150px;">發票/收據</th>
+                <th style="width: 100px; text-align: center;">請款狀態</th>
+                <th style="width: 80px; text-align: center;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="petty-list">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       TAB 5: 每月財務報表 (Monthly Financial Report)
+       ========================================================================== -->
+    <section id="tab-monthly-report" class="tab-content hidden">
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="report-header">
+          <div class="filter-group">
+            <label for="monthly-report-year" style="font-weight: 600;">選擇報表：</label>
+            <select id="monthly-report-year" class="filter-control"></select>
+            <select id="monthly-report-month" class="filter-control">
+              <option value="01">1 月</option>
+              <option value="02">2 月</option>
+              <option value="03">3 月</option>
+              <option value="04">4 月</option>
+              <option value="05">5 月</option>
+              <option value="06">6 月</option>
+              <option value="07">7 月</option>
+              <option value="08">8 月</option>
+              <option value="09">9 月</option>
+              <option value="10">10 月</option>
+              <option value="11">11 月</option>
+              <option value="12">12 月</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" onclick="window.app?.renderMonthlyFinancialPrintView(); window.print()">
+            <i data-lucide="printer"></i>列印本月報表
+          </button>
+        </div>
+
+        <div class="grid-3" style="margin-bottom: 0;">
+          <div class="card stat-card" style="box-shadow: none; border-color: var(--border);">
+            <div class="stat-info">
+              <span class="stat-label">本月總收入</span>
+              <span class="stat-value" id="report-month-income" style="color: var(--success);">$0</span>
+            </div>
+          </div>
+          <div class="card stat-card" style="box-shadow: none; border-color: var(--border);">
+            <div class="stat-info">
+              <span class="stat-label">本月總支出</span>
+              <span class="stat-value" id="report-month-expense" style="color: var(--danger);">$0</span>
+            </div>
+          </div>
+          <div class="card stat-card" style="box-shadow: none; border-color: var(--border);">
+            <div class="stat-info">
+              <span class="stat-label">本月收支結餘</span>
+              <span class="stat-value" id="report-month-balance">$0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">支出科目彙總表</div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>會計科目</th>
+                  <th style="text-align: right;">支出金額</th>
+                  <th style="text-align: right;">比例 (%)</th>
+                </tr>
+              </thead>
+              <tbody id="report-month-category-list">
+                <!-- 動態生成 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">支出科目分佈圖</div>
+          <div class="chart-container">
+            <canvas id="report-month-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 銀行存款餘額與利息申報 Card -->
+      <div class="card no-print" style="margin-bottom: 24px;">
+        <div class="card-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin: 0;">銀行存款餘額與利息申報</div>
+          <button class="btn btn-primary btn-sm" id="btn-save-bank-balances" style="padding: 6px 12px; display: flex; align-items: center; gap: 4px;">
+            <i data-lucide="save" style="width: 14px; height: 14px;"></i>儲存銀行資料
+          </button>
+        </div>
+        
+        <div class="grid-2" style="margin-bottom: 0;">
+          <!-- 永豐銀行 -->
+          <div class="bank-section" style="padding: 16px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--card-bg);">
+            <h4 style="margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700;">
+              <i data-lucide="landmark" style="width: 16px; height: 16px;"></i>永豐銀行
+            </h4>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0;">
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-sinopac-balance" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">活期存款餘額</label>
+                <input type="number" id="bank-sinopac-balance" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-sinopac-interest" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">活期存款利息</label>
+                <input type="number" id="bank-sinopac-interest" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-sinopac-td-balance" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">定期存款餘額</label>
+                <input type="number" id="bank-sinopac-td-balance" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-sinopac-td-interest" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">定期存款利息</label>
+                <input type="number" id="bank-sinopac-td-interest" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+            </div>
+          </div>
+
+          <!-- 聯邦銀行 -->
+          <div class="bank-section" style="padding: 16px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--card-bg);">
+            <h4 style="margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700;">
+              <i data-lucide="landmark" style="width: 16px; height: 16px;"></i>聯邦銀行
+            </h4>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0;">
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-union-balance" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">活期存款餘額</label>
+                <input type="number" id="bank-union-balance" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-union-interest" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">活期存款利息</label>
+                <input type="number" id="bank-union-interest" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-union-td-balance" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">定期存款餘額</label>
+                <input type="number" id="bank-union-td-balance" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="bank-union-td-interest" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">定期存款利息</label>
+                <input type="number" id="bank-union-td-interest" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bank-section" style="margin-top: 16px; padding: 16px; border-radius: 8px; border: 1px solid var(--border); background-color: var(--card-bg);">
+          <h4 style="margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700;">
+            <i data-lucide="piggy-bank" style="width: 16px; height: 16px;"></i>基金提撥
+          </h4>
+          <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 0;">
+            <div class="form-group" style="margin: 0;">
+              <label for="bank-repair-reserve-fund" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">本期修繕公基金</label>
+              <input type="number" id="bank-repair-reserve-fund" class="form-input" style="padding: 6px 10px; margin: 0;" placeholder="0">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">系統建議值</label>
+              <div id="bank-repair-reserve-suggested" class="readonly-value">$0</div>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">公基金</label>
+              <div id="bank-public-fund-preview" class="readonly-value">$0</div>
+            </div>
+          </div>
+          <div id="bank-repair-reserve-note" style="margin-top: 10px; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;"></div>
+        </div>
+      </div>
+
+      <!-- 月財報正式列印版，預設在螢幕隱藏 -->
+      <div id="monthly-financial-print-view" class="print-only monthly-financial-print-view"></div>
+
+      <div class="card">
+        <div class="card-title">本月收支交易明細</div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>交易日期</th>
+                <th>類型</th>
+                <th>科目</th>
+                <th>摘要 / 對象</th>
+                <th style="text-align: right;">收入</th>
+                <th style="text-align: right;">支出</th>
+              </tr>
+            </thead>
+            <tbody id="report-month-detail-list">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       TAB 6: 每年財務報表 (Annual Financial Report)
+       ========================================================================== -->
+    <section id="tab-annual-report" class="tab-content hidden">
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="report-header">
+          <div class="filter-group">
+            <label for="annual-report-year" style="font-weight: 600;">選擇年度：</label>
+            <select id="annual-report-year" class="filter-control"></select>
+          </div>
+          <button class="btn btn-secondary" onclick="window.print()">
+            <i data-lucide="printer"></i>列印年度報表
+          </button>
+        </div>
+        
+        <div class="chart-container" style="height: 350px;">
+          <canvas id="report-year-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">年度收支科目月份對照表</div>
+        <div class="table-responsive">
+          <table class="annual-report-table">
+            <thead>
+              <tr id="annual-table-header">
+                <th>會計科目</th>
+                <th>1月</th>
+                <th>2月</th>
+                <th>3月</th>
+                <th>4月</th>
+                <th>5月</th>
+                <th>6月</th>
+                <th>7月</th>
+                <th>8月</th>
+                <th>9月</th>
+                <th>10月</th>
+                <th>11月</th>
+                <th>12月</th>
+                <th>年度累計</th>
+              </tr>
+            </thead>
+            <tbody id="annual-table-body">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       TAB 7: 廠商資料管理 (Vendor Management)
+       ========================================================================== -->
+    <section id="tab-vendors" class="tab-content hidden">
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="vendor-search" placeholder="搜尋廠商名稱、聯絡人、統編...">
+          </div>
+          <button class="btn btn-primary" id="btn-add-vendor">
+            <i data-lucide="plus"></i>新增廠商資料
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table id="vendors-table">
+            <thead>
+              <tr>
+                <th>序號</th>
+                <th>廠商名稱</th>
+                <th>統一編號</th>
+                <th>聯絡人</th>
+                <th>電話 / 手機</th>
+                <th>電子信箱</th>
+                <th>匯款帳戶資訊</th>
+                <th style="text-align: center; width: 150px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="vendors-list">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. 區權人及管理費管理 Tab -->
+    <section id="tab-proprietors" class="tab-content hidden">
+      <!-- 子頁籤導覽列 -->
+      <div style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <button class="btn btn-secondary sub-tab-btn active" id="sub-btn-prop-list" style="font-weight: 700; padding: 8px 16px;">
+          <i data-lucide="home" style="width:16px; height:16px; margin-right:6px;"></i>區權人名冊
+        </button>
+        <button class="btn btn-secondary sub-tab-btn" id="sub-btn-fee-mgr" style="font-weight: 700; padding: 8px 16px;">
+          <i data-lucide="wallet" style="width:16px; height:16px; margin-right:6px;"></i>管理費收繳查核
+        </button>
+      </div>
+
+      <!-- 子頁籤 A：區權人名冊 -->
+      <div id="sub-panel-prop-list" class="card">
+        <div class="toolbar">
+          <div class="search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="proprietor-search" placeholder="搜尋區權人姓名、電話、車位、戶別...">
+          </div>
+          <button class="btn btn-primary" id="btn-add-proprietor">
+            <i data-lucide="plus"></i>新增區權人資料
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table id="proprietors-table">
+            <thead>
+              <tr>
+                <th style="width: 60px; text-align: center;">序號</th>
+                <th style="width: 150px;">棟別 / 樓層 / 戶別</th>
+                <th>區權人姓名</th>
+                <th>聯絡電話</th>
+                <th>房屋坪數</th>
+                <th>車位編號</th>
+                <th>收費設定</th>
+                <th>每月應繳管理費</th>
+                <th>每月應繳維護費</th>
+                <th>每月應繳合計</th>
+                <th style="text-align: center; width: 150px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="proprietors-list">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 子頁籤 B：管理費收繳查核 -->
+      <div id="sub-panel-fee-mgr" class="card hidden">
+        <div class="toolbar" style="flex-wrap: wrap; gap: 12px;">
+          <div class="filter-group" style="flex-grow: 1;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary);">查核年月：</span>
+              <select id="fee-filter-year" class="filter-control" style="width: 100px;">
+                <!-- 動態年份 -->
+              </select>
+              <select id="fee-filter-month" class="filter-control" style="width: 80px;">
+                <option value="01">1月</option>
+                <option value="02">2月</option>
+                <option value="03">3月</option>
+                <option value="04">4月</option>
+                <option value="05">5月</option>
+                <option value="06">6月</option>
+                <option value="07">7月</option>
+                <option value="08">8月</option>
+                <option value="09">9月</option>
+                <option value="10">10月</option>
+                <option value="11">11月</option>
+                <option value="12">12月</option>
+              </select>
+            </div>
+            <select id="fee-filter-status" class="filter-control" style="width: 140px; margin-left: 10px;">
+              <option value="">所有繳費狀態</option>
+              <option value="paid">已繳款</option>
+              <option value="unpaid">欠繳中</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-generate-smartlife-upload" title="依目前查核年月產生下一期智生活管理費上傳檔" style="font-weight: 700; padding: 8px 12px;">
+            <i data-lucide="file-up" style="width: 15px; height: 15px; margin-right: 4px;"></i>產生下期上傳檔
+          </button>
+          
+          <!-- 收繳進度統計摘要 -->
+          <div id="fee-collection-summary" style="display: flex; align-items: center; gap: 16px; background: var(--bg-surface); padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem;">
+            <div>應收總額：<span id="fee-sum-receivable" style="font-weight: 700; color: var(--text-primary);">$0</span></div>
+            <div>已收/預繳：<span id="fee-sum-collected" style="font-weight: 700; color: var(--success);">$0</span></div>
+            <div>欠繳總額：<span id="fee-sum-unpaid" style="font-weight: 700; color: var(--danger);">$0</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span>收繳率：</span>
+              <span id="fee-collection-rate" style="font-weight: 700; color: var(--primary);">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table id="fee-manager-table">
+            <thead>
+              <tr>
+                <th style="width: 60px; text-align: center;">序號</th>
+                <th style="width: 120px;">戶別</th>
+                <th>區權人</th>
+                <th>每月應繳管理費</th>
+                <th>每月應繳維護費</th>
+                <th>每月應繳合計</th>
+                <th>已收/預繳</th>
+                <th>繳費狀態</th>
+                <th>收款日期</th>
+                <th>收款管道 / 傳票編號</th>
+                <th style="text-align: center; width: 120px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="fee-manager-list">
+              <!-- 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================================================
+     對話框 (Modals / Dialogs)
+     ========================================================================== -->
+     
+  <!-- 1. 新增/編輯支出傳票 Modal -->
+  <dialog id="voucher-dialog">
+    <div class="modal-header">
+      <h3 id="voucher-dialog-title">新增支出傳票</h3>
+      <button class="close-btn" onclick="document.getElementById('voucher-dialog').close()">&times;</button>
+    </div>
+    <form id="voucher-form">
+      <input type="hidden" id="voucher-id">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="v-date" class="required">傳票日期</label>
+            <input type="date" id="v-date" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="v-no">傳票號碼 (自動生成)</label>
+            <input type="text" id="v-no" class="form-input" placeholder="M115XXXXX" readonly>
+          </div>
+          
+          <div class="form-group">
+            <label for="v-vendor">選擇廠商</label>
+            <select id="v-vendor" class="form-input">
+              <option value="">-- 無對應廠商 (零星支出) --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="v-category" class="required">會計科目</label>
+            <select id="v-category" class="form-input" required>
+              <option value="">-- 請選擇科目 --</option>
+              <option value="物業管理費">物業管理費</option>
+              <option value="機電消防維養費">機電消防維養費</option>
+              <option value="電梯維護保養">電梯維護保養</option>
+              <option value="機車升降梯保養">機車升降梯保養</option>
+              <option value="清潔服務費">清潔服務費</option>
+              <option value="垃圾清潔費">垃圾清潔費</option>
+              <option value="公共事務費">公共事務費</option>
+              <option value="行政事務費">行政事務費</option>
+              <option value="水電費">水電費</option>
+              <option value="維修保養費">維修保養費</option>
+              <option value="雜支">雜支</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="v-amount" class="required">支出金額 (元)</label>
+            <input type="number" id="v-amount" class="form-input" min="1" placeholder="請輸入金額" required>
+          </div>
+          <div class="form-group">
+            <label for="v-payment-method" class="required">支付方式</label>
+            <select id="v-payment-method" class="form-input" required>
+              <option value="transfer">匯款</option>
+              <option value="cash">現金</option>
+              <option value="check">支票</option>
+            </select>
+          </div>
+
+          <div class="form-group-full form-group">
+            <label for="v-bank-info">匯款/支付帳戶資訊 (選擇廠商後自動帶入，亦可編輯)</label>
+            <input type="text" id="v-bank-info" class="form-input" placeholder="例如：國泰世華銀行 (013) 帳號: 013123456789">
+          </div>
+
+          <div class="form-group">
+            <label for="v-receipt-no">發票或憑證編號</label>
+            <input type="text" id="v-receipt-no" class="form-input" placeholder="例如：AN06577815 或收據">
+          </div>
+          <div class="form-group">
+            <label for="v-fixed-type" class="required">支出性質</label>
+            <select id="v-fixed-type" class="form-input" required>
+              <option value="fixed">固定支出</option>
+              <option value="non-fixed">非固定支出</option>
+            </select>
+          </div>
+
+          <div class="form-group-full form-group">
+            <label for="v-summary" class="required">用途說明 (摘要)</label>
+            <textarea id="v-summary" class="form-input" required placeholder="例如：115年6月份漢神機電維養費"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="v-handler">經辦人</label>
+            <input type="text" id="v-handler" class="form-input" placeholder="總幹事">
+          </div>
+          <div class="form-group">
+            <label for="v-approver">財務委員</label>
+            <input type="text" id="v-approver" class="form-input" placeholder="財務委員">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('voucher-dialog').close()">取消</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-voucher">儲存傳票</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 2. 檢視與列印支出傳票 Modal -->
+  <dialog id="voucher-view-dialog" style="max-width: 780px;">
+    <div class="modal-header">
+      <h3>支出傳票檢視</h3>
+      <button class="close-btn" onclick="document.getElementById('voucher-view-dialog').close()">&times;</button>
+    </div>
+    <div class="modal-body" style="background-color: var(--bg-app);">
+      <div class="voucher-view-container">
+        <!-- 傳票列印本體 -->
+        <div class="voucher-card" id="print-area">
+          <div class="voucher-title-section">
+            <div class="voucher-org-name" id="p-org-name">鴻邦世界花園二期社區管理委員會</div>
+            <div class="voucher-title-text">支 出 傳 票</div>
+          </div>
+          <div class="voucher-meta-row">
+            <div>傳票號碼：<span id="p-no">M11506001</span></div>
+            <div>傳票日期：<span id="p-date">115 年 06 月 30 日</span></div>
+          </div>
+          
+          <table class="voucher-table">
+            <thead>
+              <tr>
+                <th style="width: 15%;">憑證編號</th>
+                <th style="width: 25%;">會 計 科 目</th>
+                <th style="width: 30%;">金        額</th>
+                <th style="width: 30%;">用  途  說  明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td id="p-receipt-no" style="text-align: center;">收據</td>
+                <td id="p-category" style="text-align: center; font-weight: 700;">機電消防維養費</td>
+                <td style="padding: 0;">
+                  <div class="voucher-amount-grid">
+                    <div class="voucher-amount-col">
+                      <div class="voucher-amount-header">百萬</div>
+                      <div class="voucher-amount-cell" id="p-amt-6"></div>
+                    </div>
+                    <div class="voucher-amount-col">
+                      <div class="voucher-amount-header">拾萬</div>
+                      <div class="voucher-amount-cell" id="p-amt-5"></div>
+                    </div>
+                    <div class="voucher-amount-col">
+                      <div class="voucher-amount-header">萬</div>
+                      <div class="voucher-amount-cell" id="p-amt-4"></div>
+                    </div>
+                    <div class="voucher-amount-col">
+                      <div class="voucher-amount-header">仟</div>
+                      <div class="voucher-amount-cell" id="p-amt-3"></div>
+                    </div>
+                    <div class="voucher-amount-col">
+                      <div class="voucher-amount-header">百</div>
+                      <div class="voucher-amount-cell" id="p-amt-2"></div>
+                    </div>
+                    <div class="voucher-amount-col">
+                      <div class="voucher-amount-header">拾</div>
+                      <div class="voucher-amount-cell" id="p-amt-1"></div>
+                    </div>
+                    <div class="voucher-amount-col">
+                      <div class="voucher-amount-header">元</div>
+                      <div class="voucher-amount-cell" id="p-amt-0"></div>
+                    </div>
+                  </div>
+                </td>
+                <td id="p-summary" style="font-size: 0.9rem;">115年6月份漢神機電維養費</td>
+              </tr>
+              <tr>
+                <td colspan="2" style="text-align: center; font-weight: 700;">新台幣金額小計 (大寫)</td>
+                <td colspan="2" id="p-amount-chinese" style="font-weight: 700; font-size: 1.1rem; padding-left: 16px;">
+                  伍仟元整
+                </td>
+              </tr>
+              <tr>
+                <td colspan="4" style="font-size: 0.85rem; border-top: 2px solid #000000;">
+                  <strong>支付明細：</strong>
+                  支付方式：<span id="p-method">匯款</span>，
+                  支付資訊：<span id="p-bank-info">國泰世華銀行 (013) 帳號: 013123456789</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="voucher-signatures">
+            <div class="signature-box">
+              <div class="signature-title">主任委員</div>
+              <div class="signature-space"></div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-title">監察委員</div>
+              <div class="signature-space"></div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-title">財務委員</div>
+              <div class="signature-space" id="p-sig-approver"></div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-title">權責委員</div>
+              <div class="signature-space"></div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-title">總幹事/經辦</div>
+              <div class="signature-space" id="p-sig-handler"></div>
+            </div>
+          </div>
+
+          <div class="voucher-footer-note">
+            <div>說明：本傳票一式一聯，由管委會留存。</div>
+            <div>支出性質：<span id="p-fixed-type">固定支出</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('voucher-view-dialog').close()">關閉</button>
+      <button class="btn btn-primary" id="btn-print-voucher">
+        <i data-lucide="printer"></i>直接列印 (A5)
+      </button>
+    </div>
+  </dialog>
+  
+  <!-- 用於列印的隱藏區塊 -->
+  <div id="print-area-container" class="hidden"></div>
+
+  <!-- 3. 新增/編輯廠商 Modal -->
+  <dialog id="vendor-dialog">
+    <div class="modal-header">
+      <h3 id="vendor-dialog-title">新增廠商資料</h3>
+      <button class="close-btn" onclick="document.getElementById('vendor-dialog').close()">&times;</button>
+    </div>
+    <form id="vendor-form">
+      <input type="hidden" id="vendor-id">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group form-group-full">
+            <label for="vendor-name" class="required">廠商名稱</label>
+            <input type="text" id="vendor-name" class="form-input" required placeholder="例如：漢神機電有限公司">
+          </div>
+          
+          <div class="form-group">
+            <label for="vendor-tax-id">統一編號</label>
+            <input type="text" id="vendor-tax-id" class="form-input" placeholder="8位數字">
+          </div>
+          <div class="form-group">
+            <label for="vendor-contact">聯絡人姓名</label>
+            <input type="text" id="vendor-contact" class="form-input" placeholder="例如：王專員">
+          </div>
+
+          <div class="form-group">
+            <label for="vendor-phone">公司電話</label>
+            <input type="text" id="vendor-phone" class="form-input" placeholder="例如：02-12345678">
+          </div>
+          <div class="form-group">
+            <label for="vendor-mobile">行動電話</label>
+            <input type="text" id="vendor-mobile" class="form-input" placeholder="例如：0912-345678">
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="vendor-email">電子信箱</label>
+            <input type="email" id="vendor-email" class="form-input" placeholder="example@vendor.com">
+          </div>
+          
+          <div class="form-group form-group-full">
+            <label for="vendor-address">廠商地址</label>
+            <input type="text" id="vendor-address" class="form-input" placeholder="例如：新北市板橋區中正路...號">
+          </div>
+
+          <!-- 匯款資料區 -->
+          <div class="form-group-full" style="border-top: 1px solid var(--border); margin-top: 10px; padding-top: 16px;">
+            <h4 style="font-weight: 700; margin-bottom: 12px; color: var(--text-primary);">匯款帳戶資訊 (選填，填寫後可於支出傳票中自動帶入)</h4>
+          </div>
+          
+          <div class="form-group">
+            <label for="vendor-bank-name">銀行名稱</label>
+            <input type="text" id="vendor-bank-name" class="form-input" placeholder="例如：國泰世華銀行">
+          </div>
+          <div class="form-group">
+            <label for="vendor-bank-branch">分行名稱</label>
+            <input type="text" id="vendor-bank-branch" class="form-input" placeholder="例如：敦南分行">
+          </div>
+
+          <div class="form-group">
+            <label for="vendor-bank-code">銀行代碼 (3碼)</label>
+            <input type="text" id="vendor-bank-code" class="form-input" placeholder="例如：013" maxlength="3">
+          </div>
+          <div class="form-group">
+            <label for="vendor-account-name">匯款戶名 (預設為公司名)</label>
+            <input type="text" id="vendor-account-name" class="form-input" placeholder="戶名">
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="vendor-account-no">銀行帳號</label>
+            <input type="text" id="vendor-account-no" class="form-input" placeholder="請輸入匯款帳號">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('vendor-dialog').close()">取消</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-vendor">儲存廠商</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 4. 新增/登記代墊請款 Modal -->
+  <dialog id="petty-cash-dialog">
+    <div class="modal-header">
+      <h3 id="petty-dialog-title">登記代墊請款</h3>
+      <button class="close-btn" onclick="document.getElementById('petty-cash-dialog').close()">&times;</button>
+    </div>
+    <form id="petty-cash-form">
+      <input type="hidden" id="petty-id">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="p-cash-date" class="required">代墊日期</label>
+            <input type="date" id="p-cash-date" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="p-cash-type" class="required">登記類型</label>
+            <select id="p-cash-type" class="form-input" required>
+              <option value="expense">代墊支出</option>
+              <option value="income">請款入帳紀錄</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="p-cash-category" class="required">會計科目</label>
+            <select id="p-cash-category" class="form-input" required>
+              <option value="行政事務費">行政事務費</option>
+              <option value="公共事務費">公共事務費</option>
+              <option value="垃圾清潔費">垃圾清潔費</option>
+              <option value="郵電費">郵電費</option>
+              <option value="辦公用品">辦公用品</option>
+              <option value="雜支">雜支</option>
+              <option value="代墊請款">代墊請款 (入帳紀錄用)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="p-cash-amount" class="required">代墊/請款金額 (元)</label>
+            <input type="number" id="p-cash-amount" class="form-input" min="1" placeholder="金額" required>
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="p-cash-receipt">發票或憑證號碼 (如：購買證明、電子發票號碼等)</label>
+            <input type="text" id="p-cash-receipt" class="form-input" placeholder="例如：發票、收據、簽收單等證明">
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="p-cash-summary" class="required">摘要 / 用途說明</label>
+            <textarea id="p-cash-summary" class="form-input" required placeholder="例如：委員代墊影印機碳粉夾匣*3$2999元"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('petty-cash-dialog').close()">取消</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-petty">登記儲存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 選擇下載零用金明細月份 Modal -->
+  <dialog id="petty-export-dialog" style="max-width: 400px; width: 90%;">
+    <div class="modal-header">
+      <h3>下載零用金收支明細</h3>
+      <button class="close-btn" onclick="document.getElementById('petty-export-dialog').close()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="p-export-month" class="required">選擇匯出月份</label>
+        <select id="p-export-month" class="form-input" style="width: 100%;" required>
+          <!-- 動態生成 -->
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('petty-export-dialog').close()">取消</button>
+      <button type="button" class="btn btn-primary" id="btn-confirm-export-excel">下載 Excel</button>
+    </div>
+  </dialog>
+
+  <!-- 5. 月份傳票總表預覽列印 Modal -->
+  <dialog id="summary-print-dialog" style="max-width: 900px; width: 95%;">
+    <div class="modal-header no-print">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <i data-lucide="printer" style="color: var(--primary);"></i>
+        月份支出傳票總表預覽
+      </h3>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-primary" onclick="window.print()" style="font-weight: 600;">
+          <i data-lucide="printer"></i>列印總表 (A4 直式)
+        </button>
+        <button class="close-btn" onclick="document.getElementById('summary-print-dialog').close()">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body print-area" style="padding: 10px;">
+      <!-- A4 直式列印內容區 -->
+      <div id="monthly-summary-print-container" class="print-container">
+        <!-- JS 動態生成 -->
+      </div>
+    </div>
+    <div class="modal-footer no-print">
+      <button class="btn btn-secondary" onclick="document.getElementById('summary-print-dialog').close()">關閉預覽</button>
+    </div>
+  </dialog>
+
+  <!-- 6. 新增/編輯區權人 Modal -->
+  <dialog id="proprietor-dialog">
+    <div class="modal-header">
+      <h3 id="proprietor-dialog-title">新增區權人資料</h3>
+      <button class="close-btn" onclick="document.getElementById('proprietor-dialog').close()">&times;</button>
+    </div>
+    <form id="proprietor-form">
+      <input type="hidden" id="proprietor-id">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="prop-building" class="required">棟別</label>
+            <input type="text" id="prop-building" class="form-input" required placeholder="如：A棟、B棟">
+          </div>
+          <div class="form-group">
+            <label for="prop-floor" class="required">樓層</label>
+            <input type="text" id="prop-floor" class="form-input" required placeholder="如：10樓、12樓">
+          </div>
+          <div class="form-group">
+            <label for="prop-room" class="required">戶別 / 室號</label>
+            <input type="text" id="prop-room" class="form-input" required placeholder="如：A1、B3、10之3">
+          </div>
+          <div class="form-group">
+            <label for="prop-name" class="required">區權人姓名</label>
+            <input type="text" id="prop-name" class="form-input" required placeholder="請輸入姓名">
+          </div>
+          <div class="form-group">
+            <label for="prop-phone" class="required">聯絡電話</label>
+            <input type="text" id="prop-phone" class="form-input" required placeholder="市話或手機">
+          </div>
+          <div class="form-group">
+            <label for="prop-area" class="required">房屋坪數</label>
+            <input type="number" id="prop-area" class="form-input" min="0.01" step="0.01" required placeholder="如：32.45">
+          </div>
+          <div class="form-group">
+            <label for="prop-parking">車位編號 (選填)</label>
+            <input type="text" id="prop-parking" class="form-input" placeholder="如：B1-125">
+          </div>
+          <div class="form-group">
+            <label for="prop-fee-type" class="required">計費方式</label>
+            <select id="prop-fee-type" class="form-input" required>
+              <option value="area">按房屋坪數計費</option>
+              <option value="fixed">每月固定金額計費</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="prop-fee-rate" class="required">管理費計費單價/金額 (元)</label>
+            <input type="number" id="prop-fee-rate" class="form-input" min="0" required placeholder="坪單價或固定管理費">
+          </div>
+          <div class="form-group">
+            <label for="prop-parking-fee">車位管理費 (元/月)</label>
+            <input type="number" id="prop-parking-fee" class="form-input" min="0" placeholder="無車位請填 0" value="0">
+          </div>
+          
+          <div class="form-group form-group-full" style="background: var(--bg-surface); padding: 12px; border-radius: 6px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">預估每月應繳合計：</span>
+            <span id="prop-monthly-fee-preview" style="font-size: 1.05rem; font-weight: 800; color: var(--primary); font-family: 'Consolas', monospace;">管理費 $0 + 維護費 $150 = $150 元</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('proprietor-dialog').close()">取消</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-proprietor">儲存資料</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 7. 管理費收款登記 Modal -->
+  <dialog id="fee-payment-dialog" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3>登記管理費收款</h3>
+      <button class="close-btn" onclick="document.getElementById('fee-payment-dialog').close()">&times;</button>
+    </div>
+    <form id="fee-payment-form">
+      <input type="hidden" id="pay-prop-id">
+      <input type="hidden" id="pay-month-val">
+      <div class="modal-body">
+        <div style="background: var(--bg-surface); padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 16px; font-size: 0.9rem; line-height: 1.5;">
+          <div>住戶戶別：<span id="pay-room-text" style="font-weight: 700;">-</span></div>
+          <div>區權姓名：<span id="pay-name-text" style="font-weight: 700;">-</span></div>
+          <div>收費月份：<span id="pay-month-text" style="font-weight: 700; color: var(--primary);">-</span></div>
+        </div>
+        
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+          <div class="form-group">
+            <label for="pay-date" class="required">收款日期</label>
+            <input type="date" id="pay-date" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="pay-amount" class="required">實收金額 (元)</label>
+            <input type="number" id="pay-amount" class="form-input" min="1" required placeholder="金額">
+          </div>
+          <div class="form-group">
+            <label for="pay-method" class="required">收款方式</label>
+            <select id="pay-method" class="form-input" required>
+              <option value="transfer">轉帳/匯款</option>
+              <option value="cash">現金</option>
+              <option value="check">支票</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pay-remark">收款備註 (選填，如轉帳末五碼或備註)</label>
+            <input type="text" id="pay-remark" class="form-input" placeholder="例如：台新轉帳 12345">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('fee-payment-dialog').close()">取消</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-fee-payment">確認登記</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ==========================================================================
+     腳本區 (Scripts)
+     ========================================================================== -->
+  <!-- 1. 引入 Lucide 圖標 CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- 2. 引入 Chart.js 圖表 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- 3. 引入 SheetJS (XLSX) Excel 解析庫 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- 4. 引入今網匯入解析器 -->
+  <script src="import-parser.js"></script>
+  <!-- 5. 引入管理費計算器 -->
+  <script src="fee-calculator.js"></script>
+  <!-- 6. 引入管理費收繳狀態計算器 -->
+  <script src="fee-status-calculator.js"></script>
+  <!-- 7. 引入智生活管理費上傳檔產生器 -->
+  <script src="smart-life-upload-generator.js"></script>
+  <!-- 8. 引入代墊請款計算器 -->
+  <script src="advance-claim-manager.js"></script>
+  <!-- 9. 引入帳務期間工具 -->
+  <script src="accounting-periods.js"></script>
+  <!-- 10. 引入今網匯入去重工具 -->
+  <script src="jinwang-import-dedupe.js"></script>
+  <!-- 11. 引入歷史收支資料與匯入器 -->
+  <script src="historical-data-importer.js"></script>
+  <script src="historical-data.js"></script>
+  <!-- 12. 引入月財報列印資料整理器 -->
+  <script src="monthly-financial-print-report.js"></script>
+  <!-- 13. 引入社區帳務系統主 JS -->
+  <script src="app.js"></script>
+
+</body>
+</html>
