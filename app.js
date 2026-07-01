@@ -783,6 +783,12 @@ class CommunityApp {
       this.handleLogout();
     });
 
+    // 點擊狀態燈號彈出登入卡片
+    this.syncStatusBadge.addEventListener('click', (e) => {
+      if (e.target.closest('#btn-logout')) return;
+      this.loginOverlay.classList.remove('hidden');
+    });
+
     // 頁籤切換
     this.tabItems.forEach(item => {
       item.addEventListener('click', () => {
@@ -4324,9 +4330,15 @@ class CommunityApp {
     const isOffline = localStorage.getItem('comm_offline_mode');
 
     if (isOffline === 'true') {
-      this.setSyncStatus('offline', '單機離線模式');
-      this.loginOverlay.classList.add('hidden');
-      return;
+      // 防呆：若離線狀態但本機基本上無真實資料，主動清空以強推雲端登入引導
+      const voucherCount = this.db.vouchers ? this.db.vouchers.length : 0;
+      if (voucherCount === 0) {
+        localStorage.removeItem('comm_offline_mode');
+      } else {
+        this.setSyncStatus('offline', '單機離線模式 (點擊登入)');
+        this.loginOverlay.classList.add('hidden');
+        return;
+      }
     }
 
     if (loggedIn === 'true') {
