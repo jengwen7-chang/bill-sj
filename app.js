@@ -1394,7 +1394,7 @@ class CommunityApp {
       tbody.innerHTML = recentVouchers.map(v => `
         <tr>
           <td><a style="font-weight: 600; cursor:pointer;" onclick="app.viewVoucher('${v.id}')">${v.voucherNo}</a></td>
-          <td>${v.vendorName || '零星支出'}</td>
+          <td>${v.vendorName ? this.maskVoucherVendorName(v.vendorName) : '零星支出'}</td>
           <td><span class="badge badge-primary">${v.category}</span></td>
           <td style="font-weight: 700; text-align: right; color: var(--danger);">$${v.amount.toLocaleString()}</td>
         </tr>
@@ -1914,8 +1914,8 @@ class CommunityApp {
         <tr>
           <td style="text-align: center;">${serial}</td>
           <td style="text-align: center;">${v.voucherNo}</td>
-          <td style="font-weight: 600;">${v.vendorName || '零星支出'}</td>
-          <td>${v.summary}</td>
+          <td style="font-weight: 600;">${v.vendorName ? this.maskVoucherVendorName(v.vendorName) : '零星支出'}</td>
+          <td>${this.maskVoucherSummary(v.summary)}</td>
           <td style="font-size: 0.8rem; line-height: 1.4; max-width: 180px; word-break: break-all;">${bankInfoText}</td>
           <td class="amount-cell">${wireAmount > 0 ? '$' + wireAmount.toLocaleString() : '-'}</td>
           <td class="amount-cell" style="color: var(--text-secondary);">${fee > 0 ? '$' + fee.toLocaleString() : '-'}</td>
@@ -3034,8 +3034,8 @@ class CommunityApp {
             <td>${isInc ? '<span class="badge badge-success">收入</span>' : '<span class="badge badge-danger">支出</span>'}</td>
             <td><span class="badge badge-primary">${v.category}</span></td>
             <td>
-              <strong style="color: var(--text-primary);">${v.vendorName || ''}</strong>
-              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">${v.summary}</div>
+              <strong style="color: var(--text-primary);">${v.vendorName ? this.maskVoucherVendorName(v.vendorName) : ''}</strong>
+              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">${this.maskVoucherSummary(v.summary)}</div>
             </td>
             <td style="text-align: right; font-weight: 700; color: var(--success);">${isInc ? '$' + v.amount.toLocaleString() : '-'}</td>
             <td style="text-align: right; font-weight: 700; color: var(--danger);">${!isInc ? '$' + v.amount.toLocaleString() : '-'}</td>
