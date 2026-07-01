@@ -100,6 +100,7 @@ class CommunityApp {
   constructor() {
     this.supabase = null;
     this.syncMode = 'loading'; // online | offline | loading
+    this.privacyMaskEnabled = true; // 預設開啟隱私個資遮罩
 
     this.initDatabase();
     
@@ -129,6 +130,48 @@ class CommunityApp {
     this.renderAll();
     
     console.log('社區帳務系統初始化完成！');
+  }
+
+  // 個資姓名遮罩邏輯
+  maskName(name) {
+    if (!name) return '';
+    if (!this.privacyMaskEnabled) return name; // 若關閉遮罩，顯示明文
+    
+    const cleanName = name.trim();
+    if (cleanName.length <= 1) return cleanName;
+    if (cleanName.length === 2) {
+      return cleanName[0] + '*';
+    }
+    // 3個字以上保留頭尾各一碼，中間填滿 *
+    return cleanName[0] + '*'.repeat(cleanName.length - 2) + cleanName[cleanName.length - 1];
+  }
+
+  // 傳票廠商/繳款人遮罩
+  maskVoucherVendorName(vendorName) {
+    if (!vendorName) return '';
+    if (!this.privacyMaskEnabled) return vendorName;
+    
+    // 如果是管理費收繳，格式為 "陳穎 (管理費)"
+    if (vendorName.includes('(管理費)')) {
+      const namePart = vendorName.replace('(管理費)', '').trim();
+      return `${this.maskName(namePart)} (管理費)`;
+    }
+    return vendorName;
+  }
+
+  // 傳票摘記個資遮罩
+  maskVoucherSummary(summary) {
+    if (!summary) return '';
+    if (!this.privacyMaskEnabled) return summary;
+
+    // 尋找 summary 中 "繳款人: 姓名" 或 "繳款人:姓名"
+    const match = summary.match(/繳款人:\s*([^\s()]+)/);
+    if (match && match[1]) {
+      const originalName = match[1];
+      return summary.replace(`繳款人:${originalName}`, `繳款人:${this.maskName(originalName)}`)
+                    .replace(`繳款人: ${originalName}`, `繳款人: ${this.maskName(originalName)}`);
+    }
+    return summary;
   }
 
   // ==========================================================================
@@ -761,12 +804,21 @@ class CommunityApp {
     this.btnForceUploadCloud = document.getElementById('btn-force-upload-cloud');
     this.btnForceDownloadCloud = document.getElementById('btn-force-download-cloud');
     this.cloudSyncControls = document.getElementById('cloud-sync-controls');
+    
+    // 隱私遮罩控制元素
+    this.btnPrivacy = document.getElementById('btn-privacy');
+    this.privacyIcon = document.getElementById('privacy-icon');
   }
 
   // ==========================================================================
   // 3. 事件綁定 (Event Listeners)
   // ==========================================================================
   initEvents() {
+    // 預設將隱私按鈕設為綠色以示啟動
+    if (this.btnPrivacy) {
+      this.btnPrivacy.style.color = "#10b981";
+    }
+
     // 雲端登入與同步事件
     this.loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -787,6 +839,36 @@ class CommunityApp {
     this.btnLogout.addEventListener('click', () => {
       this.handleLogout();
     });
+
+    // 隱私遮罩切換
+    if (this.btnPrivacy) {
+      this.btnPrivacy.addEventListener('click', () => {
+        this.privacyMaskEnabled = !this.privacyMaskEnabled;
+        
+        // 更新按鈕圖標與樣式
+        if (this.privacyMaskEnabled) {
+          this.btnPrivacy.title = "隱私保護中：姓名遮罩已啟動 (點擊顯示明文)";
+          this.btnPrivacy.style.color = "#10b981"; // 綠色
+          if (this.privacyIcon) {
+            this.privacyIcon.setAttribute('data-lucide', 'eye');
+          }
+        } else {
+          this.btnPrivacy.title = "隱私已關閉：姓名明文已顯示 (點擊啟動遮罩)";
+          this.btnPrivacy.style.color = "var(--text-secondary)";
+          if (this.privacyIcon) {
+            this.privacyIcon.setAttribute('data-lucide', 'eye-off');
+          }
+        }
+
+        // 重新繪製 Lucide 圖標
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+
+        // 重新渲染畫面以套用遮罩
+        this.renderAll();
+      });
+    }
 
     // 點擊狀態燈號彈出登入卡片
     this.syncStatusBadge.addEventListener('click', (e) => {
@@ -1536,10 +1618,10 @@ class CommunityApp {
         <td>${idx + 1}</td>
         <td>${dateFormatted}</td>
         <td style="font-weight: 600;">${v.voucherNo}</td>
-        <td>${v.vendorName || '<span class="text-muted">零星支出</span>'}</td>
+        <td>${v.vendorName ? this.maskVoucherVendorName(v.vendorName) : '<span class="text-muted">零星支出</span>'}</td>
         <td><span class="badge badge-primary">${v.category}</span></td>
         <td style="font-weight: 700; text-align: right; color: var(--danger);">$${v.amount.toLocaleString()}</td>
-        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${v.summary}">${v.summary}</td>
+        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${this.maskVoucherSummary(v.summary)}">${this.maskVoucherSummary(v.summary)}</td>
         <td>${payBadge}</td>
         <td>${typeBadge}</td>
         <td style="text-align: center;">
@@ -1690,7 +1772,7 @@ class CommunityApp {
     document.getElementById('p-date').textContent = rcDate;
     document.getElementById('p-receipt-no').textContent = v.receiptNo || '無';
     document.getElementById('p-category').textContent = v.category || '';
-    document.getElementById('p-summary').textContent = v.summary || '';
+    document.getElementById('p-summary').textContent = this.maskVoucherSummary(v.summary || '');
     document.getElementById('p-amount-chinese').textContent = this.toChineseAmount(v.amount || 0);
     document.getElementById('p-method').textContent =
       v.paymentMethod === 'transfer' ? '匯款' : v.paymentMethod === 'check' ? '支票' : '現金';
@@ -3711,7 +3793,7 @@ class CommunityApp {
       tr.innerHTML = `
         <td style="text-align: center;">${idx + 1}</td>
         <td style="font-weight: 600;">${buildingInfo}</td>
-        <td style="font-weight: 600;">${fees.name}</td>
+        <td style="font-weight: 600;">${this.maskName(fees.name)}</td>
         <td>${fees.phone}</td>
         <td>${fees.area} 坪</td>
         <td>${fees.parking || '-'}</td>
@@ -4031,7 +4113,7 @@ class CommunityApp {
       tr.innerHTML = `
         <td style="text-align: center;">${idx + 1}</td>
         <td style="font-weight: 600;">${roomName}</td>
-        <td style="font-weight: 600;">${p.name}</td>
+        <td style="font-weight: 600;">${this.maskName(p.name)}</td>
         <td style="font-family: 'Consolas', monospace; font-weight: 700;">$${item.managementFee.toLocaleString()}</td>
         <td style="font-family: 'Consolas', monospace; font-weight: 700; color: var(--text-secondary);">$${item.maintenanceFee.toLocaleString()}</td>
         <td style="font-family: 'Consolas', monospace; font-weight: 800;">$${item.monthlyFee.toLocaleString()}</td>
@@ -4077,7 +4159,7 @@ class CommunityApp {
     this.payMonthValInput.value = feeMonth;
     
     this.payRoomText.textContent = `${p.building}-${p.floor}-${p.room}`;
-    this.payNameText.textContent = p.name;
+    this.payNameText.textContent = this.maskName(p.name);
     
     const parts = feeMonth.split('-');
     const rcYear = parseInt(parts[0]) - 1911;
