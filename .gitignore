@@ -11,3 +11,4 @@
 .gemini/
 node_modules/
 .vercel
+.env*

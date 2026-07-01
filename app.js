@@ -3504,6 +3504,108 @@ class CommunityApp {
     balRow += `<td style="font-weight: 800; ${balColor}">$${totalBalAccum.toLocaleString()}</td></tr>`;
     tbodyHtml += balRow;
 
+    // E. 增加銀行明細與基金餘額列
+    const monthlySinopacBalances = Array(12).fill(0);
+    const monthlySinopacTdBalances = Array(12).fill(0);
+    const monthlyUnionBalances = Array(12).fill(0);
+    const monthlyUnionTdBalances = Array(12).fill(0);
+    const monthlyBankTotals = Array(12).fill(0);
+    const monthlyPublicFunds = Array(12).fill(0);
+    const monthlyRepairReserveFunds = Array(12).fill(0);
+    const monthlyHasData = Array(12).fill(false);
+    let latestMonthIdx = -1;
+
+    for (let m = 0; m < 12; m++) {
+      const monthStr = String(m + 1).padStart(2, '0');
+      const yearMonth = `${year}-${monthStr}`;
+      
+      const hasBankData = this.db.bankBalances && this.db.bankBalances[yearMonth];
+      const hasVouchers = this.db.vouchers.some(v => v.date && v.date.startsWith(yearMonth));
+      
+      if (hasBankData || hasVouchers) {
+        monthlyHasData[m] = true;
+        latestMonthIdx = m;
+        
+        const monthlyReport = window.MonthlyFinancialPrintReport.createMonthlyFinancialPrintReport({
+          year: year,
+          month: monthStr,
+          vouchers: this.db.vouchers,
+          bankBalances: this.db.bankBalances
+        });
+        
+        monthlySinopacBalances[m] = (monthlyReport.currentBanks && monthlyReport.currentBanks.sinopac && monthlyReport.currentBanks.sinopac.balance) || 0;
+        monthlySinopacTdBalances[m] = (monthlyReport.currentBanks && monthlyReport.currentBanks.sinopac && monthlyReport.currentBanks.sinopac.timeDepositBalance) || 0;
+        monthlyUnionBalances[m] = (monthlyReport.currentBanks && monthlyReport.currentBanks.union && monthlyReport.currentBanks.union.balance) || 0;
+        monthlyUnionTdBalances[m] = (monthlyReport.currentBanks && monthlyReport.currentBanks.union && monthlyReport.currentBanks.union.timeDepositBalance) || 0;
+        monthlyBankTotals[m] = monthlyReport.bankGrandTotal || 0;
+        monthlyPublicFunds[m] = monthlyReport.publicFund || 0;
+        monthlyRepairReserveFunds[m] = monthlyReport.repairReserveFund || 0;
+      }
+    }
+
+    // 1. 永豐活存
+    let spBalRow = `<tr class="total-row" style="color: var(--text-primary);"><td>永豐活存</td>`;
+    for (let m = 0; m < 12; m++) {
+      spBalRow += `<td>${monthlyHasData[m] ? '$' + monthlySinopacBalances[m].toLocaleString() : '-'}</td>`;
+    }
+    const finalSpBalVal = latestMonthIdx >= 0 ? monthlySinopacBalances[latestMonthIdx] : 0;
+    spBalRow += `<td style="font-weight: 700;">${latestMonthIdx >= 0 ? '$' + finalSpBalVal.toLocaleString() : '-'}</td></tr>`;
+    tbodyHtml += spBalRow;
+
+    // 2. 永豐定存
+    let spTdRow = `<tr class="total-row" style="color: var(--text-primary);"><td>永豐定存</td>`;
+    for (let m = 0; m < 12; m++) {
+      spTdRow += `<td>${monthlyHasData[m] ? '$' + monthlySinopacTdBalances[m].toLocaleString() : '-'}</td>`;
+    }
+    const finalSpTdVal = latestMonthIdx >= 0 ? monthlySinopacTdBalances[latestMonthIdx] : 0;
+    spTdRow += `<td style="font-weight: 700;">${latestMonthIdx >= 0 ? '$' + finalSpTdVal.toLocaleString() : '-'}</td></tr>`;
+    tbodyHtml += spTdRow;
+
+    // 3. 聯邦活存
+    let unBalRow = `<tr class="total-row" style="color: var(--text-primary);"><td>聯邦活存</td>`;
+    for (let m = 0; m < 12; m++) {
+      unBalRow += `<td>${monthlyHasData[m] ? '$' + monthlyUnionBalances[m].toLocaleString() : '-'}</td>`;
+    }
+    const finalUnBalVal = latestMonthIdx >= 0 ? monthlyUnionBalances[latestMonthIdx] : 0;
+    unBalRow += `<td style="font-weight: 700;">${latestMonthIdx >= 0 ? '$' + finalUnBalVal.toLocaleString() : '-'}</td></tr>`;
+    tbodyHtml += unBalRow;
+
+    // 4. 聯邦定存
+    let unTdRow = `<tr class="total-row" style="color: var(--text-primary);"><td>聯邦定存</td>`;
+    for (let m = 0; m < 12; m++) {
+      unTdRow += `<td>${monthlyHasData[m] ? '$' + monthlyUnionTdBalances[m].toLocaleString() : '-'}</td>`;
+    }
+    const finalUnTdVal = latestMonthIdx >= 0 ? monthlyUnionTdBalances[latestMonthIdx] : 0;
+    unTdRow += `<td style="font-weight: 700;">${latestMonthIdx >= 0 ? '$' + finalUnTdVal.toLocaleString() : '-'}</td></tr>`;
+    tbodyHtml += unTdRow;
+
+    // 5. 銀行帳戶總計
+    let bankTotalRow = `<tr class="total-row" style="background-color: var(--primary-light); color: var(--text-primary);"><td>銀行帳戶總計</td>`;
+    for (let m = 0; m < 12; m++) {
+      bankTotalRow += `<td>${monthlyHasData[m] ? '$' + monthlyBankTotals[m].toLocaleString() : '-'}</td>`;
+    }
+    const finalBankTotalVal = latestMonthIdx >= 0 ? monthlyBankTotals[latestMonthIdx] : 0;
+    bankTotalRow += `<td style="font-weight: 800; color: var(--primary);">${latestMonthIdx >= 0 ? '$' + finalBankTotalVal.toLocaleString() : '-'}</td></tr>`;
+    tbodyHtml += bankTotalRow;
+
+    // 6. 公共基金
+    let pubFundRow = `<tr class="total-row" style="color: var(--text-primary);"><td>公共基金</td>`;
+    for (let m = 0; m < 12; m++) {
+      pubFundRow += `<td>${monthlyHasData[m] ? '$' + monthlyPublicFunds[m].toLocaleString() : '-'}</td>`;
+    }
+    const finalPubFundVal = latestMonthIdx >= 0 ? monthlyPublicFunds[latestMonthIdx] : 0;
+    pubFundRow += `<td style="font-weight: 700;">${latestMonthIdx >= 0 ? '$' + finalPubFundVal.toLocaleString() : '-'}</td></tr>`;
+    tbodyHtml += pubFundRow;
+
+    // 7. 修繕公基金
+    let repFundRow = `<tr class="total-row" style="color: var(--text-primary);"><td>修繕公基金</td>`;
+    for (let m = 0; m < 12; m++) {
+      repFundRow += `<td>${monthlyHasData[m] ? '$' + monthlyRepairReserveFunds[m].toLocaleString() : '-'}</td>`;
+    }
+    const finalRepFundVal = latestMonthIdx >= 0 ? monthlyRepairReserveFunds[latestMonthIdx] : 0;
+    repFundRow += `<td style="font-weight: 700;">${latestMonthIdx >= 0 ? '$' + finalRepFundVal.toLocaleString() : '-'}</td></tr>`;
+    tbodyHtml += repFundRow;
+
     tbody.innerHTML = tbodyHtml;
   }
 
