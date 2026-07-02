@@ -270,12 +270,28 @@ function testSinoPacTransactionsReconciliation() {
         balance: 15300,
         summary: '利息存入',
         memo: ''
+      },
+      {
+        date: '2026-07-22',
+        expense: 1748,
+        income: 0,
+        balance: 13552,
+        summary: '台水水費',
+        memo: 'C3055000014'
+      },
+      {
+        date: '2026-07-23',
+        expense: 417,
+        income: 0,
+        balance: 13135,
+        summary: '台電扣款',
+        memo: '05464561028'
       }
     ]
   });
 
   // Verify that the expense rows are derived from sinopacTransactions instead of vouchers
-  assert.strictEqual(report.expenseRows.length, 2);
+  assert.strictEqual(report.expenseRows.length, 4);
   assert.deepStrictEqual(report.expenseRows[0], {
     dateLabel: '7/8',
     subject: '實際電梯保養費',
@@ -286,7 +302,17 @@ function testSinoPacTransactionsReconciliation() {
     subject: '實際垃圾清運費',
     amount: 3500
   });
-  assert.strictEqual(report.expenseTotal, 5000);
+  assert.deepStrictEqual(report.expenseRows[2], {
+    dateLabel: '7/22',
+    subject: '台水水費 (C3055000014)',
+    amount: 1748
+  });
+  assert.deepStrictEqual(report.expenseRows[3], {
+    dateLabel: '7/23',
+    subject: '台電扣款',
+    amount: 417
+  });
+  assert.strictEqual(report.expenseTotal, 7165);
 
   // Verify that the interest transaction from CSV is automatically added to incomeRows
   assert.strictEqual(report.incomeRows.length, 2);

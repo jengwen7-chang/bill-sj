@@ -31,6 +31,24 @@
     return voucher.vendorName || voucher.category || voucher.summary || '未分類';
   }
 
+  function getTransactionSubject(tx) {
+    const summary = String(tx.summary || '').trim();
+    const memo = String(tx.memo || '').trim();
+    
+    if (summary && memo) {
+      const genericTerms = ['電子轉帳', '跨行轉帳', '轉帳', 'ATM轉帳', '網銀轉帳', '代收轉帳', '轉帳存入', '跨行轉入', '存入', '支出'];
+      const isGeneric = genericTerms.some(term => summary.includes(term));
+      if (isGeneric) {
+        return memo;
+      }
+      
+      const isNumericMemo = /^\d+$/.test(memo);
+      return isNumericMemo ? summary : `${summary} (${memo})`;
+    }
+    
+    return summary || memo || '未分類支出';
+  }
+
   function getVoucherDateLabel(voucher, reportYear, reportMonth) {
     if (!voucher.date) return '全月';
 
@@ -177,7 +195,7 @@
           const [y, m, d] = tx.date.split('-').map(part => Number(part));
           return {
             dateLabel: `${m}/${d}`,
-            subject: tx.memo || tx.summary || '利息收入',
+            subject: getTransactionSubject(tx),
             amount: toNumber(tx.income)
           };
         });
@@ -193,7 +211,7 @@
           const [y, m, d] = tx.date.split('-').map(part => Number(part));
           return {
             dateLabel: `${m}/${d}`,
-            subject: tx.memo || tx.summary || '未分類支出',
+            subject: getTransactionSubject(tx),
             amount: toNumber(tx.expense)
           };
         });
