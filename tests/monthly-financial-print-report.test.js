@@ -219,6 +219,14 @@ function testSinoPacTransactionsReconciliation() {
     month: '07',
     vouchers: [
       {
+        type: 'income',
+        date: '2026-07-06',
+        vendorName: '管理費收入',
+        category: '管理費收入',
+        amount: 2000,
+        summary: '管理費'
+      },
+      {
         type: 'expense',
         date: '2026-07-10',
         category: '清潔服務費',
@@ -254,6 +262,14 @@ function testSinoPacTransactionsReconciliation() {
         balance: 15000,
         summary: '電子轉帳',
         memo: '實際垃圾清運費'
+      },
+      {
+        date: '2026-07-21',
+        expense: 0,
+        income: 300,
+        balance: 15300,
+        summary: '利息存入',
+        memo: ''
       }
     ]
   });
@@ -271,6 +287,15 @@ function testSinoPacTransactionsReconciliation() {
     amount: 3500
   });
   assert.strictEqual(report.expenseTotal, 5000);
+
+  // Verify that the interest transaction from CSV is automatically added to incomeRows
+  assert.strictEqual(report.incomeRows.length, 2);
+  assert.deepStrictEqual(report.incomeRows[1], {
+    dateLabel: '7/21',
+    subject: '利息存入',
+    amount: 300
+  });
+  assert.strictEqual(report.incomeTotal, 2300);
 }
 
 testBuildsReferenceStyleMonthlyReportData();

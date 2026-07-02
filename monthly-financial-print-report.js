@@ -169,6 +169,20 @@
       tx.date && AccountingPeriods.isDateInFinancialReportPeriod(tx.date, year, month)
     ));
     const hasImportedTransactions = monthlyTransactions.length > 0;
+
+    if (hasImportedTransactions) {
+      const csvInterestRows = monthlyTransactions
+        .filter(tx => tx.income > 0 && (String(tx.summary || '').includes('利息') || String(tx.memo || '').includes('利息')))
+        .map(tx => {
+          const [y, m, d] = tx.date.split('-').map(part => Number(part));
+          return {
+            dateLabel: `${m}/${d}`,
+            subject: tx.memo || tx.summary || '利息收入',
+            amount: toNumber(tx.income)
+          };
+        });
+      incomeRows.push(...csvInterestRows);
+    }
     
     let expenseRows;
     if (hasImportedTransactions) {
