@@ -35,18 +35,23 @@
     const summary = String(tx.summary || '').trim();
     const memo = String(tx.memo || '').trim();
     
+    let subject;
     if (summary && memo) {
       const genericTerms = ['電子轉帳', '跨行轉帳', '轉帳', 'ATM轉帳', '網銀轉帳', '代收轉帳', '轉帳存入', '跨行轉入', '存入', '支出'];
-      const isGeneric = genericTerms.some(term => summary.includes(term));
+      const isGeneric = genericTerms.some(term => summary.includes(term)) && !summary.includes('利息');
       if (isGeneric) {
-        return memo;
+        subject = memo;
+      } else {
+        const isNumericMemo = /^\d+$/.test(memo);
+        subject = isNumericMemo ? summary : `${summary} (${memo})`;
       }
-      
-      const isNumericMemo = /^\d+$/.test(memo);
-      return isNumericMemo ? summary : `${summary} (${memo})`;
+    } else {
+      subject = summary || memo || '未分類支出';
     }
     
-    return summary || memo || '未分類支出';
+    // 統一將「零用金章正文」或「章正文」替換為「零用金」
+    subject = subject.replace(/零用金章正文/g, '零用金').replace(/章正文/g, '零用金');
+    return subject;
   }
 
   function getVoucherDateLabel(voucher, reportYear, reportMonth) {

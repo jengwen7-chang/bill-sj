@@ -3631,8 +3631,46 @@ class CommunityApp {
   renderAnnualReport() {
     const year = this.annualYearSelect.value; // "2026"
     const yearNum = parseInt(year);
+    const prevYear = String(yearNum - 1);
 
-    // 1. 取得 1~12 月每月收支與明細，建立科目月對照矩陣
+    // 依據「上年9月至本年8月」週期定義 12 個月份
+    const monthsInCycle = [
+      { y: prevYear, m: '09' },
+      { y: prevYear, m: '10' },
+      { y: prevYear, m: '11' },
+      { y: prevYear, m: '12' },
+      { y: year, m: '01' },
+      { y: year, m: '02' },
+      { y: year, m: '03' },
+      { y: year, m: '04' },
+      { y: year, m: '05' },
+      { y: year, m: '06' },
+      { y: year, m: '07' },
+      { y: year, m: '08' }
+    ];
+
+    // 動態渲染表頭，顯示正確的月份順序
+    const headerRow = document.getElementById('annual-table-header');
+    if (headerRow) {
+      headerRow.innerHTML = `
+        <th>會計科目</th>
+        <th>9月</th>
+        <th>10月</th>
+        <th>11月</th>
+        <th>12月</th>
+        <th>1月</th>
+        <th>2月</th>
+        <th>3月</th>
+        <th>4月</th>
+        <th>5月</th>
+        <th>6月</th>
+        <th>7月</th>
+        <th>8月</th>
+        <th>年度累計</th>
+      `;
+    }
+
+    // 1. 取得 12 個月每月收支與明細，建立科目月對照矩陣
     const monthlyIncomes = Array(12).fill(0);
     const monthlyExpenses = Array(12).fill(0);
 
@@ -3640,49 +3678,53 @@ class CommunityApp {
     const categories = new Set();
 
     for (let m = 0; m < 12; m++) {
-      const monthStr = String(m + 1).padStart(2, '0');
+      const target = monthsInCycle[m];
       
-      const report = window.MonthlyFinancialPrintReport.createMonthlyFinancialPrintReport({
-        year: year,
-        month: monthStr,
-        vouchers: this.db.vouchers,
-        bankBalances: this.db.bankBalances,
-        sinopacTransactions: this.db.sinopacTransactions || [],
-        proprietors: this.db.proprietors || []
-      });
+      const report = window.CommunityFeeStatusCalculator
+        ? window.MonthlyFinancialPrintReport.createMonthlyFinancialPrintReport({
+            year: target.y,
+            month: target.m,
+            vouchers: this.db.vouchers,
+            bankBalances: this.db.bankBalances,
+            sinopacTransactions: this.db.sinopacTransactions || [],
+            proprietors: this.db.proprietors || []
+          })
+        : null;
 
-      monthlyIncomes[m] = report.incomeTotal;
-      monthlyExpenses[m] = report.expenseTotal;
+      if (report) {
+        monthlyIncomes[m] = report.incomeTotal;
+        monthlyExpenses[m] = report.expenseTotal;
 
-      // 累計收入科目
-      report.incomeRows.forEach(row => {
-        const cat = row.subject;
-        categories.add(cat);
-        if (!categoryMonthMatrix[cat]) {
-          categoryMonthMatrix[cat] = {
-            type: 'income',
-            months: Array(12).fill(0),
-            total: 0
-          };
-        }
-        categoryMonthMatrix[cat].months[m] += row.amount;
-        categoryMonthMatrix[cat].total += row.amount;
-      });
+        // 累計收入科目
+        report.incomeRows.forEach(row => {
+          const cat = row.subject;
+          categories.add(cat);
+          if (!categoryMonthMatrix[cat]) {
+            categoryMonthMatrix[cat] = {
+              type: 'income',
+              months: Array(12).fill(0),
+              total: 0
+            };
+          }
+          categoryMonthMatrix[cat].months[m] += row.amount;
+          categoryMonthMatrix[cat].total += row.amount;
+        });
 
-      // 累計支出科目
-      report.expenseRows.forEach(row => {
-        const cat = row.subject;
-        categories.add(cat);
-        if (!categoryMonthMatrix[cat]) {
-          categoryMonthMatrix[cat] = {
-            type: 'expense',
-            months: Array(12).fill(0),
-            total: 0
-          };
-        }
-        categoryMonthMatrix[cat].months[m] += row.amount;
-        categoryMonthMatrix[cat].total += row.amount;
-      });
+        // 累計支出科目
+        report.expenseRows.forEach(row => {
+          const cat = row.subject;
+          categories.add(cat);
+          if (!categoryMonthMatrix[cat]) {
+            categoryMonthMatrix[cat] = {
+              type: 'expense',
+              months: Array(12).fill(0),
+              total: 0
+            };
+          }
+          categoryMonthMatrix[cat].months[m] += row.amount;
+          categoryMonthMatrix[cat].total += row.amount;
+        });
+      }
     }
 
     // 2. 渲染年度收支走勢圖 (Chart.js)
@@ -3765,8 +3807,8 @@ class CommunityApp {
     let latestMonthIdx = -1;
 
     for (let m = 0; m < 12; m++) {
-      const monthStr = String(m + 1).padStart(2, '0');
-      const yearMonth = `${year}-${monthStr}`;
+      const target = monthsInCycle[m];
+      const yearMonth = `${target.y}-${target.m}`;
       
       const hasBankData = this.db.bankBalances && this.db.bankBalances[yearMonth];
       const hasVouchers = this.db.vouchers.some(v => v.date && v.date.startsWith(yearMonth));
@@ -3777,8 +3819,8 @@ class CommunityApp {
         latestMonthIdx = m;
         
         const monthlyReport = window.MonthlyFinancialPrintReport.createMonthlyFinancialPrintReport({
-          year: year,
-          month: monthStr,
+          year: target.y,
+          month: target.m,
           vouchers: this.db.vouchers,
           bankBalances: this.db.bankBalances,
           sinopacTransactions: this.db.sinopacTransactions || [],
@@ -3873,7 +3915,7 @@ class CommunityApp {
     const ctx = canvas.getContext('2d');
 
     const isDark = document.body.classList.contains('dark');
-    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    const months = ['9月', '10月', '11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月'];
 
     this.annualBarChart = new Chart(ctx, {
       type: 'bar',

@@ -253,7 +253,7 @@ function testSinoPacTransactionsReconciliation() {
         income: 0,
         balance: 18500,
         summary: '電子轉帳',
-        memo: '實際電梯保養費'
+        memo: '零用金章正文'
       },
       {
         date: '2026-07-12',
@@ -269,7 +269,7 @@ function testSinoPacTransactionsReconciliation() {
         income: 300,
         balance: 15300,
         summary: '利息存入',
-        memo: ''
+        memo: '17003600458347'
       },
       {
         date: '2026-07-22',
@@ -294,7 +294,7 @@ function testSinoPacTransactionsReconciliation() {
   assert.strictEqual(report.expenseRows.length, 4);
   assert.deepStrictEqual(report.expenseRows[0], {
     dateLabel: '7/8',
-    subject: '實際電梯保養費',
+    subject: '零用金',
     amount: 1500
   });
   assert.deepStrictEqual(report.expenseRows[1], {
