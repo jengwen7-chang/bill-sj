@@ -313,42 +313,67 @@
        ========================================================================== -->
     <section id="tab-import" class="tab-content hidden">
       <div class="grid-2">
-        <div class="card">
-          <div class="card-title">今網智生活 Excel 匯入</div>
-          
-          <div class="import-zone" id="excel-drop-zone">
-            <i data-lucide="file-up"></i>
-            <div>
-              <h3>將今網智生活匯出的 Excel 檔案拖曳至此</h3>
-              <p style="margin-top: 8px;">或者 <strong>點擊此處瀏覽電腦檔案</strong></p>
-              <p style="font-size: 0.8rem; margin-top: 6px;">支援 .xlsx 或 .xls 檔案格式</p>
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <!-- 今網智生活 Excel 匯入 -->
+          <div class="card">
+            <div class="card-title">今網智生活 Excel 匯入</div>
+            
+            <div class="import-zone" id="excel-drop-zone">
+              <i data-lucide="file-up"></i>
+              <div>
+                <h3>將今網智生活匯出的 Excel 檔案拖曳至此</h3>
+                <p style="margin-top: 8px;">或者 <strong>點擊此處瀏覽電腦檔案</strong></p>
+                <p style="font-size: 0.8rem; margin-top: 6px;">支援 .xlsx 或 .xls 檔案格式</p>
+              </div>
+              <input type="file" id="excel-file-input" class="hidden" accept=".xlsx, .xls">
             </div>
-            <input type="file" id="excel-file-input" class="hidden" accept=".xlsx, .xls">
+
+            <div class="import-preview-section hidden" id="import-preview-section">
+              <div class="card-title" style="font-size: 1rem; margin-bottom: 12px;">欄位設定與對照</div>
+              <div class="column-mapper-grid">
+                <div class="form-group">
+                  <label for="map-date">收款日期欄位</label>
+                  <select id="map-date" class="filter-control"></select>
+                </div>
+                <div class="form-group">
+                  <label for="map-addr">戶別/棟別欄位</label>
+                  <select id="map-addr" class="filter-control"></select>
+                </div>
+                <div class="form-group">
+                  <label for="map-amount">入帳/實收金額欄位</label>
+                  <select id="map-amount" class="filter-control"></select>
+                </div>
+                <div class="form-group">
+                  <label for="map-payer">繳款人欄位</label>
+                  <select id="map-payer" class="filter-control"></select>
+                </div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="import-stats-text" style="font-weight: 600;">共偵測到 0 筆資料，合計金額：$0</span>
+                <button class="btn btn-primary" id="btn-submit-import">確認匯入資料庫</button>
+              </div>
+            </div>
           </div>
 
-          <div class="import-preview-section hidden" id="import-preview-section">
-            <div class="card-title" style="font-size: 1rem; margin-bottom: 12px;">欄位設定與對照</div>
-            <div class="column-mapper-grid">
-              <div class="form-group">
-                <label for="map-date">收款日期欄位</label>
-                <select id="map-date" class="filter-control"></select>
+          <!-- 永豐銀行對帳單 CSV 匯入 -->
+          <div class="card">
+            <div class="card-title">永豐銀行對帳明細 CSV 匯入</div>
+            
+            <div class="import-zone" id="sinopac-drop-zone">
+              <i data-lucide="file-spreadsheet" style="color: var(--primary);"></i>
+              <div>
+                <h3>將永豐銀行下載的對帳明細 CSV 檔案拖曳至此</h3>
+                <p style="margin-top: 8px;">或者 <strong>點擊此處瀏覽電腦檔案</strong></p>
+                <p style="font-size: 0.8rem; margin-top: 6px;">支援 .csv 檔案格式 (UTF-8 編碼)</p>
               </div>
-              <div class="form-group">
-                <label for="map-addr">戶別/棟別欄位</label>
-                <select id="map-addr" class="filter-control"></select>
-              </div>
-              <div class="form-group">
-                <label for="map-amount">入帳/實收金額欄位</label>
-                <select id="map-amount" class="filter-control"></select>
-              </div>
-              <div class="form-group">
-                <label for="map-payer">繳款人欄位</label>
-                <select id="map-payer" class="filter-control"></select>
-              </div>
+              <input type="file" id="sinopac-file-input" class="hidden" accept=".csv">
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span id="import-stats-text" style="font-weight: 600;">共偵測到 0 筆資料，合計金額：$0</span>
-              <button class="btn btn-primary" id="btn-submit-import">確認匯入資料庫</button>
+
+            <div class="import-preview-section hidden" id="sinopac-preview-section">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="sinopac-stats-text" style="font-weight: 600;">共偵測到 0 筆明細，合計支出：$0</span>
+                <button class="btn btn-primary" id="btn-submit-sinopac-import">確認對帳匯入</button>
+              </div>
             </div>
           </div>
         </div>
@@ -379,10 +404,32 @@
         <div class="table-responsive">
           <table>
             <thead id="import-preview-thead">
-              <!-- 動態生成 -->
+              <!-- - -->
             </thead>
             <tbody id="import-preview-tbody">
-              <!-- 動態生成 -->
+              <!-- - -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 永豐對帳預覽表格 -->
+      <div class="card hidden" id="sinopac-table-card" style="margin-top: 24px;">
+        <div class="card-title">永豐銀行明細解析預覽 (僅顯示前 30 筆)</div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>入帳日期</th>
+                <th>摘要</th>
+                <th>備註/資金來源</th>
+                <th style="text-align: right;">支出 (Debits)</th>
+                <th style="text-align: right;">存入 (Credits)</th>
+                <th style="text-align: right;">帳戶餘額</th>
+              </tr>
+            </thead>
+            <tbody id="sinopac-preview-tbody">
+              <!-- - -->
             </tbody>
           </table>
         </div>

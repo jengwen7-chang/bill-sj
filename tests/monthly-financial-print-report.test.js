@@ -213,7 +213,68 @@ function testDoesNotAllocateTenPercentWhenNetIncomeIsNegative() {
   assert.strictEqual(report.publicFund, 2000);
 }
 
+function testSinoPacTransactionsReconciliation() {
+  const report = createMonthlyFinancialPrintReport({
+    year: '2026',
+    month: '07',
+    vouchers: [
+      {
+        type: 'expense',
+        date: '2026-07-10',
+        category: '清潔服務費',
+        amount: 5000,
+        summary: '估計清潔費'
+      }
+    ],
+    bankBalances: {
+      '2026-06': {
+        repairReserveFund: 10000,
+        sinopac: { balance: 20000 },
+        union: { balance: 10000 }
+      },
+      '2026-07': {
+        repairReserveFund: 10000,
+        sinopac: { balance: 15000 },
+        union: { balance: 10000 }
+      }
+    },
+    sinopacTransactions: [
+      {
+        date: '2026-07-08',
+        expense: 1500,
+        income: 0,
+        balance: 18500,
+        summary: '電子轉帳',
+        memo: '實際電梯保養費'
+      },
+      {
+        date: '2026-07-12',
+        expense: 3500,
+        income: 0,
+        balance: 15000,
+        summary: '電子轉帳',
+        memo: '實際垃圾清運費'
+      }
+    ]
+  });
+
+  // Verify that the expense rows are derived from sinopacTransactions instead of vouchers
+  assert.strictEqual(report.expenseRows.length, 2);
+  assert.deepStrictEqual(report.expenseRows[0], {
+    dateLabel: '7/8',
+    subject: '實際電梯保養費',
+    amount: 1500
+  });
+  assert.deepStrictEqual(report.expenseRows[1], {
+    dateLabel: '7/12',
+    subject: '實際垃圾清運費',
+    amount: 3500
+  });
+  assert.strictEqual(report.expenseTotal, 5000);
+}
+
 testBuildsReferenceStyleMonthlyReportData();
+testSinoPacTransactionsReconciliation();
 testCalculatesRepairReserveAndPublicFund();
 testMonthlyReportUsesFinancialPeriodSixToFive();
 testSummarizesUnitFeeIncomeLikeHistoricalReport();

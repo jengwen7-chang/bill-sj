@@ -149,7 +149,7 @@
     };
   }
 
-  function createMonthlyFinancialPrintReport({ year, month, vouchers = [], bankBalances = {} }) {
+  function createMonthlyFinancialPrintReport({ year, month, vouchers = [], bankBalances = {}, sinopacTransactions = [] }) {
     const yearMonth = `${year}-${month}`;
     const previousYearMonth = getPreviousYearMonth(year, month);
     const monthNumber = Number(month);
@@ -163,7 +163,29 @@
     const sinopacTimeDepositDelta = currentBanks.sinopac.timeDepositBalance - previousBanks.sinopac.timeDepositBalance;
 
     const incomeRows = buildVoucherRows(monthlyVouchers, 'income', year, month);
-    const expenseRows = buildVoucherRows(monthlyVouchers, 'expense', year, month);
+    
+    // 判斷當月是否有永豐對帳單匯入資料，若有則以對帳單支出為準
+    const monthlyTransactions = sinopacTransactions.filter(tx => (
+      tx.date && AccountingPeriods.isDateInFinancialReportPeriod(tx.date, year, month)
+    ));
+    const hasImportedTransactions = monthlyTransactions.length > 0;
+    
+    let expenseRows;
+    if (hasImportedTransactions) {
+      expenseRows = monthlyTransactions
+        .filter(tx => tx.expense > 0)
+        .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+        .map(tx => {
+          const [y, m, d] = tx.date.split('-').map(part => Number(part));
+          return {
+            dateLabel: `${m}/${d}`,
+            subject: tx.memo || tx.summary || '未分類支出',
+            amount: toNumber(tx.expense)
+          };
+        });
+    } else {
+      expenseRows = buildVoucherRows(monthlyVouchers, 'expense', year, month);
+    }
 
     if (sinopacTimeDepositDelta > 0) {
       expenseRows.unshift({

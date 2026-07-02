@@ -185,7 +185,8 @@ class CommunityApp {
       pettyCash: JSON.parse(localStorage.getItem('comm_petty_cash')) || [],
       importHistory: JSON.parse(localStorage.getItem('comm_import_history')) || [],
       proprietors: JSON.parse(localStorage.getItem('comm_proprietors')) || [],
-      bankBalances: JSON.parse(localStorage.getItem('comm_bank_balances')) || {}
+      bankBalances: JSON.parse(localStorage.getItem('comm_bank_balances')) || {},
+      sinopacTransactions: JSON.parse(localStorage.getItem('comm_sinopac_transactions')) || []
     };
 
     // 防呆：若 proprietors 為空 (例如初次載入或有舊 LocalStorage 但無此新欄位)，自動補齊預設真實住戶名冊
@@ -257,6 +258,9 @@ class CommunityApp {
     }
     if (key === 'bankBalances' || !key) {
       localStorage.setItem('comm_bank_balances', JSON.stringify(this.db.bankBalances));
+    }
+    if (key === 'sinopacTransactions' || !key) {
+      localStorage.setItem('comm_sinopac_transactions', JSON.stringify(this.db.sinopacTransactions));
     }
 
     // 當處於雲端同步模式時，自動將更新推送至 Supabase
@@ -729,6 +733,15 @@ class CommunityApp {
     this.mapAmountSelect = document.getElementById('map-amount');
     this.mapPayerSelect = document.getElementById('map-payer');
     
+    // 永豐對帳匯入相關
+    this.sinopacDropZone = document.getElementById('sinopac-drop-zone');
+    this.sinopacFileInput = document.getElementById('sinopac-file-input');
+    this.sinopacPreviewSection = document.getElementById('sinopac-preview-section');
+    this.sinopacTableCard = document.getElementById('sinopac-table-card');
+    this.sinopacStatsText = document.getElementById('sinopac-stats-text');
+    this.btnSubmitSinopacImport = document.getElementById('btn-submit-sinopac-import');
+    this.sinopacPreviewTbody = document.getElementById('sinopac-preview-tbody');
+    
     // 財務報表相關
     this.monthlyYearSelect = document.getElementById('monthly-report-year');
     this.monthlyMonthSelect = document.getElementById('monthly-report-month');
@@ -1144,6 +1157,46 @@ class CommunityApp {
       this.submitImportedData();
     });
 
+    // --- 永豐對帳匯入事件 ---
+    if (this.sinopacDropZone) {
+      this.sinopacDropZone.addEventListener('click', () => {
+        this.sinopacFileInput.click();
+      });
+    }
+
+    if (this.sinopacFileInput) {
+      this.sinopacFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          this.processSinopacFile(e.target.files[0]);
+        }
+      });
+    }
+
+    if (this.sinopacDropZone) {
+      this.sinopacDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        this.sinopacDropZone.classList.add('dragover');
+      });
+
+      this.sinopacDropZone.addEventListener('dragleave', () => {
+        this.sinopacDropZone.classList.remove('dragover');
+      });
+
+      this.sinopacDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        this.sinopacDropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+          this.processSinopacFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    if (this.btnSubmitSinopacImport) {
+      this.btnSubmitSinopacImport.addEventListener('click', () => {
+        this.submitSinopacImportedData();
+      });
+    }
+
     // --- 財報月份變更事件 ---
     this.monthlyYearSelect.addEventListener('change', () => this.renderMonthlyReport());
     this.monthlyMonthSelect.addEventListener('change', () => this.renderMonthlyReport());
@@ -1161,7 +1214,8 @@ class CommunityApp {
           year,
           month,
           vouchers: this.db.vouchers,
-          bankBalances: this.db.bankBalances
+          bankBalances: this.db.bankBalances,
+          sinopacTransactions: this.db.sinopacTransactions || []
         });
         const repairReserveFund = parseFloat(this.repairReserveFundInput.value) || 0;
         if (this.publicFundPreviewText) {
@@ -2739,6 +2793,177 @@ class CommunityApp {
     this.switchTab('dashboard');
   }
 
+  // --- 永豐對帳單匯入與解析核心邏輯 ---
+  parseSinopacCSV(csvText) {
+    const lines = csvText.split(/\r?\n/);
+    const records = [];
+    let headerFound = false;
+    
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+      
+      const cells = [];
+      let currentCell = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          cells.push(currentCell.trim());
+          currentCell = '';
+        } else {
+          currentCell += char;
+        }
+      }
+      cells.push(currentCell.trim());
+      
+      if (cells.length > 0 && cells[0].replace(/"/g, '') === '帳號') {
+        headerFound = true;
+        continue;
+      }
+      
+      if (!headerFound) continue;
+      if (cells.length < 7) continue;
+      
+      const account = cells[0].replace(/"/g, '');
+      const entryDateStr = cells[1].replace(/"/g, ''); // "2026/01/03"
+      const expenseStr = cells[2].replace(/"/g, '').replace(/,/g, '');
+      const incomeStr = cells[3].replace(/"/g, '').replace(/,/g, '');
+      const balanceStr = cells[4].replace(/"/g, '').replace(/,/g, '');
+      const summary = cells[5].replace(/"/g, '');
+      const memo = cells[6].replace(/"/g, '');
+      
+      if (!entryDateStr) continue;
+      
+      const dateParts = entryDateStr.split('/');
+      if (dateParts.length !== 3) continue;
+      const formattedDate = `${dateParts[0]}-${dateParts[1].padStart(2, '0')}-${dateParts[2].padStart(2, '0')}`;
+      
+      const expense = parseFloat(expenseStr) || 0;
+      const income = parseFloat(incomeStr) || 0;
+      const balance = parseFloat(balanceStr) || 0;
+      
+      records.push({
+        account,
+        date: formattedDate,
+        expense,
+        income,
+        balance,
+        summary,
+        memo
+      });
+    }
+    return records;
+  }
+
+  processSinopacFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        
+        const parsed = this.parseSinopacCSV(text);
+        if (parsed.length === 0) {
+          alert('找不到有效的永豐對帳明細列！');
+          return;
+        }
+
+        this.currentSinopacFilename = file.name;
+        this.tempSinopacRecords = parsed;
+        
+        const totalExpense = parsed.reduce((sum, r) => sum + r.expense, 0);
+        const totalIncome = parsed.reduce((sum, r) => sum + r.income, 0);
+        const count = parsed.length;
+        
+        if (this.sinopacStatsText) {
+          this.sinopacStatsText.textContent = `共偵測到 ${count} 筆對帳明細，合計支出：$${totalExpense.toLocaleString()} 元，合計存入：$${totalIncome.toLocaleString()} 元`;
+        }
+        
+        const previewRows = parsed.slice(0, 30);
+        if (this.sinopacPreviewTbody) {
+          this.sinopacPreviewTbody.innerHTML = previewRows.map(r => `
+            <tr>
+              <td>${r.date}</td>
+              <td>${this.escapeHtml(r.summary || '')}</td>
+              <td>${this.escapeHtml(r.memo || '')}</td>
+              <td style="text-align: right; font-weight: 700; ${r.expense > 0 ? 'color: var(--danger);' : ''}">${r.expense > 0 ? '$' + r.expense.toLocaleString() : '-'}</td>
+              <td style="text-align: right; font-weight: 700; ${r.income > 0 ? 'color: var(--success);' : ''}">${r.income > 0 ? '$' + r.income.toLocaleString() : '-'}</td>
+              <td style="text-align: right; font-weight: 600;">$${r.balance.toLocaleString()}</td>
+            </tr>
+          `).join('');
+        }
+        
+        if (this.sinopacPreviewSection) this.sinopacPreviewSection.classList.remove('hidden');
+        if (this.sinopacTableCard) this.sinopacTableCard.classList.remove('hidden');
+        
+      } catch (err) {
+        console.error('CSV 解析失敗:', err);
+        alert(`CSV 解析失敗，請確認檔案格式是否正確！\n錯誤: ${err.message}`);
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  submitSinopacImportedData() {
+    if (!this.tempSinopacRecords || this.tempSinopacRecords.length === 0) return;
+    
+    if (!this.db.sinopacTransactions) {
+      this.db.sinopacTransactions = [];
+    }
+    
+    const existingKeys = new Set(
+      this.db.sinopacTransactions.map(tx => 
+        `${tx.date}_${tx.summary}_${tx.memo}_${tx.expense}_${tx.income}_${tx.balance}`
+      )
+    );
+    
+    let newAdded = 0;
+    let newExpenseTotal = 0;
+    let skippedCount = 0;
+    
+    this.tempSinopacRecords.forEach(tx => {
+      const key = `${tx.date}_${tx.summary}_${tx.memo}_${tx.expense}_${tx.income}_${tx.balance}`;
+      if (existingKeys.has(key)) {
+        skippedCount++;
+      } else {
+        this.db.sinopacTransactions.push(tx);
+        newAdded++;
+        newExpenseTotal += tx.expense;
+        existingKeys.add(key);
+      }
+    });
+    
+    if (newAdded > 0) {
+      this.saveToStorage('sinopacTransactions');
+      
+      const now = new Date();
+      const formattedDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      
+      this.db.importHistory.push({
+        filename: this.currentSinopacFilename || '永豐對帳單.csv',
+        date: formattedDate,
+        count: newAdded,
+        total: newExpenseTotal,
+        skippedDuplicateCount: skippedCount
+      });
+      this.saveToStorage('importHistory');
+    }
+    
+    alert(`對帳匯入完成！成功新增 ${newAdded} 筆明細，略過 ${skippedCount} 筆重複記錄。財務報表支出已自動同步更新！`);
+    
+    if (this.sinopacPreviewSection) this.sinopacPreviewSection.classList.add('hidden');
+    if (this.sinopacTableCard) this.sinopacTableCard.classList.add('hidden');
+    if (this.sinopacFileInput) this.sinopacFileInput.value = '';
+    
+    this.tempSinopacRecords = [];
+    this.currentSinopacFilename = '';
+    
+    this.renderAll();
+    this.switchTab('dashboard');
+  }
+
   // ==========================================================================
   // 9. 廠商資料管理 (Vendors CRUD)
   // ==========================================================================
@@ -3081,7 +3306,8 @@ class CommunityApp {
       year,
       month,
       vouchers: this.db.vouchers,
-      bankBalances: bankBalancesForReport
+      bankBalances: bankBalancesForReport,
+      sinopacTransactions: this.db.sinopacTransactions || []
     });
 
     const topRowCount = Math.max(14, report.incomeRows.length, report.expenseRows.length);
@@ -3246,7 +3472,8 @@ class CommunityApp {
         year,
         month,
         vouchers: this.db.vouchers,
-        bankBalances: this.db.bankBalances
+        bankBalances: this.db.bankBalances,
+        sinopacTransactions: this.db.sinopacTransactions || []
       })
       : null;
 
@@ -3399,45 +3626,60 @@ class CommunityApp {
     const year = this.annualYearSelect.value; // "2026"
     const yearNum = parseInt(year);
 
-    // 1. 取得該年度所有傳票
-    const annualVouchers = this.db.vouchers.filter(v => {
-      if (!v.date) return false;
-      return new Date(v.date).getFullYear() === yearNum;
-    });
-
-    // 2. 算 1~12 月每月收入與支出
+    // 1. 取得 1~12 月每月收支與明細，建立科目月對照矩陣
     const monthlyIncomes = Array(12).fill(0);
     const monthlyExpenses = Array(12).fill(0);
 
-    annualVouchers.forEach(v => {
-      const monthIdx = parseInt(v.date.substring(5, 7)) - 1; // 0 ~ 11
-      if (v.type === 'income') {
-        monthlyIncomes[monthIdx] += v.amount;
-      } else {
-        monthlyExpenses[monthIdx] += v.amount;
-      }
-    });
-
-    // 3. 渲染年度收支走勢圖 (Chart.js)
-    this.renderAnnualBarChart(monthlyIncomes, monthlyExpenses);
-
-    // 4. 統計各科目在各月份的收支矩陣
-    const categoryMonthMatrix = {}; // { '管理費收入': [0,0,0...], '水電費': [...] }
+    const categoryMonthMatrix = {}; // { '管理費收入': { type: 'income', months: [...], total: 0 }, ... }
     const categories = new Set();
-    
-    annualVouchers.forEach(v => {
-      categories.add(v.category);
-      if (!categoryMonthMatrix[v.category]) {
-        categoryMonthMatrix[v.category] = {
-          type: v.type, // 'income' 或 'expense'
-          months: Array(12).fill(0),
-          total: 0
-        };
-      }
-      const monthIdx = parseInt(v.date.substring(5, 7)) - 1;
-      categoryMonthMatrix[v.category].months[monthIdx] += v.amount;
-      categoryMonthMatrix[v.category].total += v.amount;
-    });
+
+    for (let m = 0; m < 12; m++) {
+      const monthStr = String(m + 1).padStart(2, '0');
+      
+      const report = window.MonthlyFinancialPrintReport.createMonthlyFinancialPrintReport({
+        year: year,
+        month: monthStr,
+        vouchers: this.db.vouchers,
+        bankBalances: this.db.bankBalances,
+        sinopacTransactions: this.db.sinopacTransactions || []
+      });
+
+      monthlyIncomes[m] = report.incomeTotal;
+      monthlyExpenses[m] = report.expenseTotal;
+
+      // 累計收入科目
+      report.incomeRows.forEach(row => {
+        const cat = row.subject;
+        categories.add(cat);
+        if (!categoryMonthMatrix[cat]) {
+          categoryMonthMatrix[cat] = {
+            type: 'income',
+            months: Array(12).fill(0),
+            total: 0
+          };
+        }
+        categoryMonthMatrix[cat].months[m] += row.amount;
+        categoryMonthMatrix[cat].total += row.amount;
+      });
+
+      // 累計支出科目
+      report.expenseRows.forEach(row => {
+        const cat = row.subject;
+        categories.add(cat);
+        if (!categoryMonthMatrix[cat]) {
+          categoryMonthMatrix[cat] = {
+            type: 'expense',
+            months: Array(12).fill(0),
+            total: 0
+          };
+        }
+        categoryMonthMatrix[cat].months[m] += row.amount;
+        categoryMonthMatrix[cat].total += row.amount;
+      });
+    }
+
+    // 2. 渲染年度收支走勢圖 (Chart.js)
+    this.renderAnnualBarChart(monthlyIncomes, monthlyExpenses);
 
     // 分離收入與支出科目並排序
     const sortedCategories = Array.from(categories).sort((a, b) => {
@@ -3521,8 +3763,9 @@ class CommunityApp {
       
       const hasBankData = this.db.bankBalances && this.db.bankBalances[yearMonth];
       const hasVouchers = this.db.vouchers.some(v => v.date && v.date.startsWith(yearMonth));
+      const hasTransactions = this.db.sinopacTransactions && this.db.sinopacTransactions.some(v => v.date && v.date.startsWith(yearMonth));
       
-      if (hasBankData || hasVouchers) {
+      if (hasBankData || hasVouchers || hasTransactions) {
         monthlyHasData[m] = true;
         latestMonthIdx = m;
         
@@ -3530,7 +3773,8 @@ class CommunityApp {
           year: year,
           month: monthStr,
           vouchers: this.db.vouchers,
-          bankBalances: this.db.bankBalances
+          bankBalances: this.db.bankBalances,
+          sinopacTransactions: this.db.sinopacTransactions || []
         });
         
         monthlySinopacBalances[m] = (monthlyReport.currentBanks && monthlyReport.currentBanks.sinopac && monthlyReport.currentBanks.sinopac.balance) || 0;
@@ -3794,7 +4038,8 @@ class CommunityApp {
         pettyCash: [],
         importHistory: [],
         proprietors: [],
-        bankBalances: {}
+        bankBalances: {},
+        sinopacTransactions: []
       };
       this.saveToStorage();
       this.renderAll();
