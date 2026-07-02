@@ -51,7 +51,7 @@ function testBuildsReferenceStyleMonthlyReportData() {
   });
   assert.strictEqual(report.expenseRows[1].subject, '保全服務費');
   assert.strictEqual(report.incomeTotal, 69957);
-  assert.strictEqual(report.expenseTotal, 1072985);
+  assert.strictEqual(report.expenseTotal, 72985);
   assert.strictEqual(report.bankSections.sinopac.active.beginning, 1572038);
   assert.strictEqual(report.bankSections.sinopac.active.income, 69957);
   assert.strictEqual(report.bankSections.sinopac.active.expense, 1072985);

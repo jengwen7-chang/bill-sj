@@ -279,13 +279,16 @@
       });
     }
 
-    const incomeTotal = sumRows(incomeRows);
-    const expenseTotal = sumRows(expenseRows);
+    const incomeTotal = sumRows(incomeRows.filter(r => r.subject !== '定存解約'));
+    const expenseTotal = sumRows(expenseRows.filter(r => r.subject !== '定存'));
     const netTotal = incomeTotal - expenseTotal;
     const unionInterest = currentBanks.union.interest + currentBanks.union.timeDepositInterest;
 
+    const activeIncome = sumRows(incomeRows);
+    const activeExpense = sumRows(expenseRows);
+
     const bankSections = {
-      sinopac: createBankSection(previousBanks.sinopac, currentBanks.sinopac, incomeTotal, expenseTotal),
+      sinopac: createBankSection(previousBanks.sinopac, currentBanks.sinopac, activeIncome, activeExpense),
       union: createBankSection(previousBanks.union, currentBanks.union, unionInterest, 0)
     };
 
