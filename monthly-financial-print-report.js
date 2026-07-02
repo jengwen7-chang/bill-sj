@@ -49,8 +49,8 @@
       subject = summary || memo || '未分類支出';
     }
     
-    // 統一將「零用金章正文」或「章正文」替換為「零用金」
-    subject = subject.replace(/零用金章正文/g, '零用金').replace(/章正文/g, '零用金');
+    // 統一將「零用金章正文」或「章正文」替換為「零用金」，以及「網銀開單」替換為「轉定存」
+    subject = subject.replace(/零用金章正文/g, '零用金').replace(/章正文/g, '零用金').replace(/網銀開單/g, '轉定存');
     return subject;
   }
 
