@@ -279,8 +279,10 @@
       });
     }
 
-    const incomeTotal = sumRows(incomeRows.filter(r => r.subject !== '定存解約'));
-    const expenseTotal = sumRows(expenseRows.filter(r => r.subject !== '定存'));
+    const excludedIncomeSubjects = ['定存解約', '定存存入'];
+    const excludedExpenseSubjects = ['定存', '轉定存'];
+    const incomeTotal = sumRows(incomeRows.filter(r => !excludedIncomeSubjects.includes(r.subject)));
+    const expenseTotal = sumRows(expenseRows.filter(r => !excludedExpenseSubjects.includes(r.subject)));
     const netTotal = incomeTotal - expenseTotal;
     const unionInterest = currentBanks.union.interest + currentBanks.union.timeDepositInterest;
 

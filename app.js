@@ -3698,6 +3698,7 @@ class CommunityApp {
         // 累計收入科目
         report.incomeRows.forEach(row => {
           const cat = row.subject;
+          if (cat === '定存解約' || cat === '定存存入') return; // 排除定存帳號移轉
           categories.add(cat);
           if (!categoryMonthMatrix[cat]) {
             categoryMonthMatrix[cat] = {
@@ -3713,6 +3714,7 @@ class CommunityApp {
         // 累計支出科目
         report.expenseRows.forEach(row => {
           const cat = row.subject;
+          if (cat === '定存' || cat === '轉定存') return; // 排除定存帳號移轉
           categories.add(cat);
           if (!categoryMonthMatrix[cat]) {
             categoryMonthMatrix[cat] = {

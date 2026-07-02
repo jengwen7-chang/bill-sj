@@ -325,7 +325,7 @@ function testSinoPacTransactionsReconciliation() {
     subject: '轉定存',
     amount: 300000
   });
-  assert.strictEqual(report.expenseTotal, 307165);
+  assert.strictEqual(report.expenseTotal, 7165);
 
   // Verify that the interest transaction from CSV is automatically added to incomeRows
   assert.strictEqual(report.incomeRows.length, 2);
