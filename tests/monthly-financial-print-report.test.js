@@ -379,7 +379,7 @@ function testPrepaidManagementFeeAmortization() {
   assert.strictEqual(janPrepaid.amount, 12650);
   assert.strictEqual(reportJan.incomeTotal, 13800);
 
-  // 2. 驗證 2026-02 (未來分攤月)
+  // 2. 驗證 2026-02 (未來分攤月，無實收不認列)
   const reportFeb = createMonthlyFinancialPrintReport({
     year: '2026',
     month: '02',
@@ -391,9 +391,9 @@ function testPrepaidManagementFeeAmortization() {
   const febMaint = getRow(reportFeb.incomeRows, '維護費收入');
   const febPrepaid = getRow(reportFeb.incomeRows, '預收管理費');
 
-  assert.strictEqual(febMgmt.amount, 1000);
-  assert.strictEqual(febMaint.amount, 150);
-  assert.strictEqual(febPrepaid.amount, -1150);
+  assert.strictEqual(febMgmt.amount, 0);
+  assert.strictEqual(febMaint.amount, 0);
+  assert.strictEqual(febPrepaid.amount, 0);
   assert.strictEqual(reportFeb.incomeTotal, 0);
 }
 

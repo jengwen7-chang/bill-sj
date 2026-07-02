@@ -65,12 +65,6 @@
     return `${toTaiwanYear(year)}/${month}`;
   }
 
-  function monthToIndex(yearMonth) {
-    const match = String(yearMonth || '').match(/^(\d{4})-(\d{2})$/);
-    if (!match) return null;
-    return parseInt(match[1], 10) * 12 + parseInt(match[2], 10) - 1;
-  }
-
   function buildVoucherRows(vouchers, type, year, month, proprietors = []) {
     if (type === 'income') {
       return buildIncomeRows(vouchers, year, month, proprietors);
@@ -96,8 +90,6 @@
 
   function buildIncomeRows(vouchers, targetYear, targetMonth, proprietors = []) {
     const summaryMap = new Map();
-    const targetYearMonth = `${targetYear}-${targetMonth}`;
-    const targetIndex = monthToIndex(targetYearMonth);
 
     // 建立住戶月費對照表
     const proprietorMap = new Map(proprietors.map(p => {
@@ -110,6 +102,10 @@
       .filter(voucher => voucher.type === 'income')
       .forEach(voucher => {
         if (voucher.category === '管理費收入') {
+          // 僅在實收月份認列，並分列當月的預收金額
+          const isReceiptMonth = voucher.date && AccountingPeriods.isDateInFinancialReportPeriod(voucher.date, targetYear, targetMonth);
+          if (!isReceiptMonth) return;
+
           if (voucher.proprietorId) {
             const prop = proprietorMap.get(voucher.proprietorId);
             let monthlyMgmt = prop ? prop.managementFee : 0;
@@ -123,36 +119,24 @@
             const monthlyTotal = monthlyMgmt + monthlyMaint;
             const amount = toNumber(voucher.amount);
             
-            // 計算涵蓋月份
-            const startMonth = voucher.feeMonth || (voucher.date ? voucher.date.substring(0, 7) : '');
-            const startIndex = monthToIndex(startMonth);
-            const monthsCovered = monthlyTotal > 0 ? Math.max(1, Math.floor(amount / monthlyTotal)) : 1;
-            const endIndex = startIndex !== null ? (startIndex + monthsCovered - 1) : null;
-            
-            const isCovered = startIndex !== null && targetIndex !== null && startIndex <= targetIndex && targetIndex <= endIndex;
-            const isReceiptMonth = voucher.date && AccountingPeriods.isDateInFinancialReportPeriod(voucher.date, targetYear, targetMonth);
-            
-            const recognizedMgmt = isCovered ? monthlyMgmt : 0;
-            const recognizedMaint = isCovered ? monthlyMaint : 0;
-            const prepaidAdjustment = (isReceiptMonth ? amount : 0) - recognizedMgmt - recognizedMaint;
-            
-            if (recognizedMgmt > 0) {
-              addSummaryRow(summaryMap, '管理費收入', recognizedMgmt);
-            }
-            if (recognizedMaint > 0) {
-              addSummaryRow(summaryMap, '維護費收入', recognizedMaint);
-            }
-            if (prepaidAdjustment !== 0) {
-              addSummaryRow(summaryMap, '預收管理費', prepaidAdjustment);
-            }
-          } else {
-            // Legacy / no proprietor fallback: count entirely in receipt month
-            if (voucher.date && AccountingPeriods.isDateInFinancialReportPeriod(voucher.date, targetYear, targetMonth)) {
+            if (amount > monthlyTotal) {
+              // 有預收：分列當月應收的管理費與維護費，剩餘全部為預收管理費
+              addSummaryRow(summaryMap, '管理費收入', monthlyMgmt);
+              addSummaryRow(summaryMap, '維護費收入', monthlyMaint);
+              addSummaryRow(summaryMap, '預收管理費', amount - monthlyTotal);
+            } else {
+              // 無預收：正常拆分管理費與維護費
               const maintenanceFee = getVoucherMaintenanceFee(voucher);
-              const managementFee = Math.max(0, toNumber(voucher.amount) - maintenanceFee);
+              const managementFee = Math.max(0, amount - maintenanceFee);
               addSummaryRow(summaryMap, '管理費收入', managementFee);
               addSummaryRow(summaryMap, '維護費收入', maintenanceFee);
             }
+          } else {
+            // 無住戶對應：全部在實收月份認列
+            const maintenanceFee = getVoucherMaintenanceFee(voucher);
+            const managementFee = Math.max(0, toNumber(voucher.amount) - maintenanceFee);
+            addSummaryRow(summaryMap, '管理費收入', managementFee);
+            addSummaryRow(summaryMap, '維護費收入', maintenanceFee);
           }
           return;
         }
