@@ -60,9 +60,15 @@
     return `${toTaiwanYear(year)}/${month}`;
   }
 
-  function buildVoucherRows(vouchers, type, year, month) {
+  function monthToIndex(yearMonth) {
+    const match = String(yearMonth || '').match(/^(\d{4})-(\d{2})$/);
+    if (!match) return null;
+    return parseInt(match[1], 10) * 12 + parseInt(match[2], 10) - 1;
+  }
+
+  function buildVoucherRows(vouchers, type, year, month, proprietors = []) {
     if (type === 'income') {
-      return buildIncomeRows(vouchers);
+      return buildIncomeRows(vouchers, year, month, proprietors);
     }
 
     return vouchers
@@ -83,22 +89,73 @@
     summaryMap.get(subject).amount += amount;
   }
 
-  function buildIncomeRows(vouchers) {
+  function buildIncomeRows(vouchers, targetYear, targetMonth, proprietors = []) {
     const summaryMap = new Map();
+    const targetYearMonth = `${targetYear}-${targetMonth}`;
+    const targetIndex = monthToIndex(targetYearMonth);
+
+    // 建立住戶月費對照表
+    const proprietorMap = new Map(proprietors.map(p => {
+      const mgmt = toNumber(p.managementFee) || 0;
+      const maint = toNumber(p.maintenanceFee) || 0;
+      return [p.id, { managementFee: mgmt, maintenanceFee: maint, monthlyFee: mgmt + maint }];
+    }));
 
     vouchers
       .filter(voucher => voucher.type === 'income')
-      .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
       .forEach(voucher => {
         if (voucher.category === '管理費收入') {
-          const maintenanceFee = getVoucherMaintenanceFee(voucher);
-          const managementFee = Math.max(0, toNumber(voucher.amount) - maintenanceFee);
-          addSummaryRow(summaryMap, '管理費收入', managementFee);
-          addSummaryRow(summaryMap, '維護費收入', maintenanceFee);
+          if (voucher.proprietorId) {
+            const prop = proprietorMap.get(voucher.proprietorId);
+            let monthlyMgmt = prop ? prop.managementFee : 0;
+            let monthlyMaint = prop ? prop.maintenanceFee : getVoucherMaintenanceFee(voucher);
+            
+            if (monthlyMgmt + monthlyMaint === 0) {
+              monthlyMaint = getVoucherMaintenanceFee(voucher);
+              monthlyMgmt = Math.max(0, toNumber(voucher.amount) - monthlyMaint);
+            }
+            
+            const monthlyTotal = monthlyMgmt + monthlyMaint;
+            const amount = toNumber(voucher.amount);
+            
+            // 計算涵蓋月份
+            const startMonth = voucher.feeMonth || (voucher.date ? voucher.date.substring(0, 7) : '');
+            const startIndex = monthToIndex(startMonth);
+            const monthsCovered = monthlyTotal > 0 ? Math.max(1, Math.floor(amount / monthlyTotal)) : 1;
+            const endIndex = startIndex !== null ? (startIndex + monthsCovered - 1) : null;
+            
+            const isCovered = startIndex !== null && targetIndex !== null && startIndex <= targetIndex && targetIndex <= endIndex;
+            const isReceiptMonth = voucher.date && AccountingPeriods.isDateInFinancialReportPeriod(voucher.date, targetYear, targetMonth);
+            
+            const recognizedMgmt = isCovered ? monthlyMgmt : 0;
+            const recognizedMaint = isCovered ? monthlyMaint : 0;
+            const prepaidAdjustment = (isReceiptMonth ? amount : 0) - recognizedMgmt - recognizedMaint;
+            
+            if (recognizedMgmt > 0) {
+              addSummaryRow(summaryMap, '管理費收入', recognizedMgmt);
+            }
+            if (recognizedMaint > 0) {
+              addSummaryRow(summaryMap, '維護費收入', recognizedMaint);
+            }
+            if (prepaidAdjustment !== 0) {
+              addSummaryRow(summaryMap, '預收管理費', prepaidAdjustment);
+            }
+          } else {
+            // Legacy / no proprietor fallback: count entirely in receipt month
+            if (voucher.date && AccountingPeriods.isDateInFinancialReportPeriod(voucher.date, targetYear, targetMonth)) {
+              const maintenanceFee = getVoucherMaintenanceFee(voucher);
+              const managementFee = Math.max(0, toNumber(voucher.amount) - maintenanceFee);
+              addSummaryRow(summaryMap, '管理費收入', managementFee);
+              addSummaryRow(summaryMap, '維護費收入', maintenanceFee);
+            }
+          }
           return;
         }
 
-        addSummaryRow(summaryMap, getVoucherSubject(voucher), toNumber(voucher.amount));
+        // 非管理費收入的其它收入（僅在收件月份計入）
+        if (voucher.date && AccountingPeriods.isDateInFinancialReportPeriod(voucher.date, targetYear, targetMonth)) {
+          addSummaryRow(summaryMap, getVoucherSubject(voucher), toNumber(voucher.amount));
+        }
       });
 
     return Array.from(summaryMap.values());
@@ -167,7 +224,7 @@
     };
   }
 
-  function createMonthlyFinancialPrintReport({ year, month, vouchers = [], bankBalances = {}, sinopacTransactions = [] }) {
+  function createMonthlyFinancialPrintReport({ year, month, vouchers = [], bankBalances = {}, sinopacTransactions = [], proprietors = [] }) {
     const yearMonth = `${year}-${month}`;
     const previousYearMonth = getPreviousYearMonth(year, month);
     const monthNumber = Number(month);
@@ -180,7 +237,7 @@
     const currentBanks = Object.fromEntries(BANK_KEYS.map(key => [key, getBankBalance(bankBalances, yearMonth, key)]));
     const sinopacTimeDepositDelta = currentBanks.sinopac.timeDepositBalance - previousBanks.sinopac.timeDepositBalance;
 
-    const incomeRows = buildVoucherRows(monthlyVouchers, 'income', year, month);
+    const incomeRows = buildVoucherRows(vouchers, 'income', year, month, proprietors);
     
     // 判斷當月是否有永豐對帳單匯入資料，若有則以對帳單支出為準
     const monthlyTransactions = sinopacTransactions.filter(tx => (

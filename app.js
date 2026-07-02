@@ -1215,7 +1215,8 @@ class CommunityApp {
           month,
           vouchers: this.db.vouchers,
           bankBalances: this.db.bankBalances,
-          sinopacTransactions: this.db.sinopacTransactions || []
+          sinopacTransactions: this.db.sinopacTransactions || [],
+          proprietors: this.db.proprietors || []
         });
         const repairReserveFund = parseFloat(this.repairReserveFundInput.value) || 0;
         if (this.publicFundPreviewText) {
@@ -3286,6 +3287,9 @@ class CommunityApp {
   formatPrintCurrency(value, showZero = false) {
     const amount = Number(value) || 0;
     if (!showZero && amount === 0) return '';
+    if (amount < 0) {
+      return `-$${Math.abs(amount).toLocaleString()}`;
+    }
     return `$${amount.toLocaleString()}`;
   }
 
@@ -3307,7 +3311,8 @@ class CommunityApp {
       month,
       vouchers: this.db.vouchers,
       bankBalances: bankBalancesForReport,
-      sinopacTransactions: this.db.sinopacTransactions || []
+      sinopacTransactions: this.db.sinopacTransactions || [],
+      proprietors: this.db.proprietors || []
     });
 
     const topRowCount = Math.max(14, report.incomeRows.length, report.expenseRows.length);
@@ -3473,7 +3478,8 @@ class CommunityApp {
         month,
         vouchers: this.db.vouchers,
         bankBalances: this.db.bankBalances,
-        sinopacTransactions: this.db.sinopacTransactions || []
+        sinopacTransactions: this.db.sinopacTransactions || [],
+        proprietors: this.db.proprietors || []
       })
       : null;
 
@@ -3641,7 +3647,8 @@ class CommunityApp {
         month: monthStr,
         vouchers: this.db.vouchers,
         bankBalances: this.db.bankBalances,
-        sinopacTransactions: this.db.sinopacTransactions || []
+        sinopacTransactions: this.db.sinopacTransactions || [],
+        proprietors: this.db.proprietors || []
       });
 
       monthlyIncomes[m] = report.incomeTotal;
@@ -3774,7 +3781,8 @@ class CommunityApp {
           month: monthStr,
           vouchers: this.db.vouchers,
           bankBalances: this.db.bankBalances,
-          sinopacTransactions: this.db.sinopacTransactions || []
+          sinopacTransactions: this.db.sinopacTransactions || [],
+          proprietors: this.db.proprietors || []
         });
         
         monthlySinopacBalances[m] = (monthlyReport.currentBanks && monthlyReport.currentBanks.sinopac && monthlyReport.currentBanks.sinopac.balance) || 0;

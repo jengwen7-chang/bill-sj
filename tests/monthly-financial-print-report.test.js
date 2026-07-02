@@ -324,7 +324,68 @@ function testSinoPacTransactionsReconciliation() {
   assert.strictEqual(report.incomeTotal, 2300);
 }
 
+function testPrepaidManagementFeeAmortization() {
+  const proprietors = [
+    {
+      id: 'prop_01',
+      name: '張大華',
+      managementFee: 1000,
+      maintenanceFee: 150
+    }
+  ];
+
+  const vouchers = [
+    {
+      id: 'v_01',
+      type: 'income',
+      category: '管理費收入',
+      amount: 13800,
+      proprietorId: 'prop_01',
+      feeMonth: '2026-01',
+      date: '2026-01-10',
+      summary: '張大華年繳管理費'
+    }
+  ];
+
+  // 1. 驗證 2026-01 (付款當月)
+  const reportJan = createMonthlyFinancialPrintReport({
+    year: '2026',
+    month: '01',
+    vouchers,
+    proprietors
+  });
+
+  const getRow = (rows, subject) => rows.find(r => r.subject === subject) || { amount: 0 };
+
+  const janMgmt = getRow(reportJan.incomeRows, '管理費收入');
+  const janMaint = getRow(reportJan.incomeRows, '維護費收入');
+  const janPrepaid = getRow(reportJan.incomeRows, '預收管理費');
+
+  assert.strictEqual(janMgmt.amount, 1000);
+  assert.strictEqual(janMaint.amount, 150);
+  assert.strictEqual(janPrepaid.amount, 12650);
+  assert.strictEqual(reportJan.incomeTotal, 13800);
+
+  // 2. 驗證 2026-02 (未來分攤月)
+  const reportFeb = createMonthlyFinancialPrintReport({
+    year: '2026',
+    month: '02',
+    vouchers,
+    proprietors
+  });
+
+  const febMgmt = getRow(reportFeb.incomeRows, '管理費收入');
+  const febMaint = getRow(reportFeb.incomeRows, '維護費收入');
+  const febPrepaid = getRow(reportFeb.incomeRows, '預收管理費');
+
+  assert.strictEqual(febMgmt.amount, 1000);
+  assert.strictEqual(febMaint.amount, 150);
+  assert.strictEqual(febPrepaid.amount, -1150);
+  assert.strictEqual(reportFeb.incomeTotal, 0);
+}
+
 testBuildsReferenceStyleMonthlyReportData();
+testPrepaidManagementFeeAmortization();
 testSinoPacTransactionsReconciliation();
 testCalculatesRepairReserveAndPublicFund();
 testMonthlyReportUsesFinancialPeriodSixToFive();
